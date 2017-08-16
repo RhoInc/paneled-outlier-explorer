@@ -39,15 +39,6 @@
                 'div.wc-layout.wc-small-multiples > div.wc-chart {' +
                     '    padding-right: 1em;' +
                     '}',
-                'div.wc-layout.wc-small-multiples > div.wc-chart.full-screen {' +
-                    '    z-index: 9999;' +
-                    '    width: 100%;' +
-                    '    height: 100%;' +
-                    '    position: fixed;' +
-                    '    top: 0;' +
-                    '    left: 0;' +
-                    '    background: white;' +
-                    ' }',
                 'div.wc-layout.wc-small-multiples > div.wc-chart .chart-button {' +
                     '    float: right;' +
                     '    cursor: pointer;' +
@@ -68,7 +59,7 @@
                     '}',
                 'path.brushed {' +
                     '    stroke: orange;' +
-                    '    stroke-width: 3px;' +
+                    '    stroke-width: 2px;' +
                     '    stroke-opacity: 1;' +
                     '}',
                 'circle.selected {' + '    stroke: orange;' + '    fill: black;' + '}'
@@ -168,7 +159,7 @@
         x: {
             type: 'linear',
             column: null, // sync to [ time_col ]
-            label: 'Study Day'
+            label: ''
         },
         y: {
             type: 'linear',
@@ -180,27 +171,29 @@
                 type: 'line',
                 per: null, // sync to [ id_col ] and [ measure_col ]
                 attributes: {
-                    'stroke-width': 0.5,
-                    'stroke-opacity': 0.5,
-                    stroke: '#999'
+                    'stroke-width': 1,
+                    'stroke-opacity': 0.2,
+                    stroke: 'black'
                 }
-            },
-            {
-                type: 'circle',
-                per: null, // sync to [ id_col ], [ measure_col ], [ time_col ], and [ value_col ]
-                radius: 2,
-                attributes: {
-                    'stroke-width': 0.5,
-                    'stroke-opacity': 0.5,
-                    'fill-opacity': 1
-                }
+                /*,
+        {
+            type: 'circle',
+            per: null, // sync to [ id_col ], [ measure_col ], [ time_col ], and [ value_col ]
+            radius: 2,
+            attributes: {
+                'stroke-width': 0.5,
+                'stroke-opacity': 0.5,
+                'fill-opacity': 1
+            }
+        }*/
             }
         ],
         resizable: false,
-        width: 600,
-        height: 300,
+        width: 250,
+        height: 125,
         margin: {
-            left: 50
+            left: 30,
+            right: 0
         }
     };
 
@@ -209,13 +202,14 @@
         syncedSettings.x.column = settings.time_col;
         syncedSettings.y.column = settings.value_col;
         syncedSettings.marks[0].per = [settings.id_col, settings.measure_col];
-        syncedSettings.marks[1].per = [
-            settings.id_col,
-            settings.measure_col,
-            settings.time_col,
-            settings.value_col
-        ];
-
+        /*
+    syncedSettings.marks[1].per = [
+        settings.id_col,
+        settings.measure_col,
+        settings.time_col,
+        settings.value_col
+    ];
+    */
         return syncedSettings;
     }
 
@@ -294,20 +288,18 @@
 
     function m__imize(chart) {
         //Maximize chart.
-        if (!chart.wrap.classed('full-screen')) {
+        if (!chart.wrap.classed('expanded')) {
             chart.wrap.select('.m__imize-chart').html('&minus;').attr('title', 'Minimize chart');
-            chart.wrap.classed('full-screen', true);
-            chart.config.width = null;
-            chart.config.height = null;
-            chart.config.aspect = 2;
+            chart.wrap.classed('expanded', true);
+            chart.config.width = chart.config.initialSettings.width * 3;
+            chart.config.height = chart.config.initialSettings.height * 3;
             chart.draw();
         } else {
             //Minimize chart
             chart.wrap.select('.m__imize-chart').html('&plus;').attr('title', 'Maximize chart');
-            chart.wrap.classed('full-screen', false);
+            chart.wrap.classed('expanded', false);
             chart.config.width = chart.config.initialSettings.width;
             chart.config.height = chart.config.initialSettings.height;
-            chart.config.aspect = null;
             chart.draw();
         }
     }
