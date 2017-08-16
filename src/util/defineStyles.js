@@ -25,15 +25,6 @@ export default function defineStyles() {
                 '    border-left: 1px solid lightgray;' +
                 '}',
             'div.wc-layout.wc-small-multiples > div.wc-chart {' + '    padding-right: 1em;' + '}',
-            'div.wc-layout.wc-small-multiples > div.wc-chart.full-screen {' +
-                '    z-index: 9999;' +
-                '    width: 100%;' +
-                '    height: 100%;' +
-                '    position: fixed;' +
-                '    top: 0;' +
-                '    left: 0;' +
-                '    background: white;' +
-                ' }',
             'div.wc-layout.wc-small-multiples > div.wc-chart .chart-button {' +
                 '    float: right;' +
                 '    cursor: pointer;' +
@@ -54,7 +45,7 @@ export default function defineStyles() {
                 '}',
             'path.brushed {' +
                 '    stroke: orange;' +
-                '    stroke-width: 3px;' +
+                '    stroke-width: 2px;' +
                 '    stroke-opacity: 1;' +
                 '}',
             'circle.selected {' + '    stroke: orange;' + '    fill: black;' + '}'

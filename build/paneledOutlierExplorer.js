@@ -39,15 +39,6 @@
                 'div.wc-layout.wc-small-multiples > div.wc-chart {' +
                     '    padding-right: 1em;' +
                     '}',
-                'div.wc-layout.wc-small-multiples > div.wc-chart.full-screen {' +
-                    '    z-index: 9999;' +
-                    '    width: 100%;' +
-                    '    height: 100%;' +
-                    '    position: fixed;' +
-                    '    top: 0;' +
-                    '    left: 0;' +
-                    '    background: white;' +
-                    ' }',
                 'div.wc-layout.wc-small-multiples > div.wc-chart .chart-button {' +
                     '    float: right;' +
                     '    cursor: pointer;' +
@@ -68,7 +59,7 @@
                     '}',
                 'path.brushed {' +
                     '    stroke: orange;' +
-                    '    stroke-width: 3px;' +
+                    '    stroke-width: 2px;' +
                     '    stroke-opacity: 1;' +
                     '}',
                 'circle.selected {' + '    stroke: orange;' + '    fill: black;' + '}'
@@ -180,9 +171,9 @@
                 type: 'line',
                 per: null, // sync to [ id_col ] and [ measure_col ]
                 attributes: {
-                    'stroke-width': 0.5,
-                    'stroke-opacity': 0.5,
-                    stroke: '#222'
+                    'stroke-width': 1,
+                    'stroke-opacity': 0.2,
+                    stroke: 'black'
                 }
                 /*,
         {
@@ -297,20 +288,18 @@
 
     function m__imize(chart) {
         //Maximize chart.
-        if (!chart.wrap.classed('full-screen')) {
+        if (!chart.wrap.classed('expanded')) {
             chart.wrap.select('.m__imize-chart').html('&minus;').attr('title', 'Minimize chart');
-            chart.wrap.classed('full-screen', true);
-            chart.config.width = null;
-            chart.config.height = null;
-            chart.config.aspect = 2;
+            chart.wrap.classed('expanded', true);
+            chart.config.width = chart.config.initialSettings.width * 3;
+            chart.config.height = chart.config.initialSettings.height * 3;
             chart.draw();
         } else {
             //Minimize chart
             chart.wrap.select('.m__imize-chart').html('&plus;').attr('title', 'Maximize chart');
-            chart.wrap.classed('full-screen', false);
+            chart.wrap.classed('expanded', false);
             chart.config.width = chart.config.initialSettings.width;
             chart.config.height = chart.config.initialSettings.height;
-            chart.config.aspect = null;
             chart.draw();
         }
     }

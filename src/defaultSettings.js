@@ -26,9 +26,9 @@ export default {
             type: 'line',
             per: null, // sync to [ id_col ] and [ measure_col ]
             attributes: {
-                'stroke-width': 0.5,
-                'stroke-opacity': 0.5,
-                stroke: '#222'
+                'stroke-width': 1,
+                'stroke-opacity': 0.2,
+                stroke: 'black'
             }
         }
         /*,
