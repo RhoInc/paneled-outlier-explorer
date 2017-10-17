@@ -75,7 +75,7 @@ export default function defineStyles() {
                 '    padding: 14px 16px;' +
                 '    text-decoration: none;' +
                 '}',
-            '#paneled-outlier-explorer ul#navigation-bar li.navigation.active {' +
+            '#paneled-outlier-explorer ul#navigation-bar li.navigation.wc-active {' +
                 '    background-color: #111;' +
                 '}',
             '#paneled-outlier-explorer ul#navigation-bar li.navigation:hover {' +
@@ -139,7 +139,7 @@ export default function defineStyles() {
           General styles
         \--------------------------------------------------------------------------------------***/
 
-            '#paneled-outlier-explorer .hidden {' + '    display: none !important;' + '}',
+            '#paneled-outlier-explorer .wc-hidden {' + '    display: none !important;' + '}',
             '#paneled-outlier-explorer circle.brushed {' +
                 '    stroke: orange;' +
                 '    stroke-width: 2px;' +
