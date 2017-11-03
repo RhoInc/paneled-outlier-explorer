@@ -9,7 +9,7 @@ export default function toggleChart(chart, li) {
     select(chart.div)
         .selectAll('.wc-chart')
         .filter(di => di.measure === select(li).datum())
-        .classed('hidden', !checked);
+        .classed('wc-hidden', !checked);
 
     //If any checkbox is unchecked, uncheck measureListCheckbox.
     toggleCharts(chart, false);

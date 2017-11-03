@@ -11,14 +11,14 @@ export default function onLayout() {
             this.wrap.selectAll('.wc-chart-title span').style('visibility', 'visible');
         })
         .on('mouseout', () => {
-            this.wrap.selectAll('.wc-chart-title span').style('visibility', 'hidden');
+            this.wrap.selectAll('.wc-chart-title span').style('visibility', 'wc-hidden');
         })
         .select('.wc-chart-title')
         .append('span')
         .classed('remove-chart chart-button', true)
         .html('&#10006;')
         .attr('title', 'Remove chart')
-        .style('visibility', 'hidden')
+        .style('visibility', 'wc-hidden')
         .on('click', () => {
             //Minimize chart.
             if (this.wrap.classed('full-screen')) m__imize(this);
@@ -44,5 +44,5 @@ export default function onLayout() {
     //Hide measures not listed in [ settings.measures ].
     this.wrap
         .classed(this.currentMeasure.replace(/[^a-z0-9-]/gi, '-'), true)
-        .classed('hidden', this.config.measures.indexOf(this.currentMeasure) === -1);
+        .classed('wc-hidden', this.config.measures.indexOf(this.currentMeasure) === -1);
 }

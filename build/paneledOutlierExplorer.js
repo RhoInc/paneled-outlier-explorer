@@ -92,7 +92,7 @@
                     '    padding: 14px 16px;' +
                     '    text-decoration: none;' +
                     '}',
-                '#paneled-outlier-explorer ul#navigation-bar li.navigation.active {' +
+                '#paneled-outlier-explorer ul#navigation-bar li.navigation.wc-active {' +
                     '    background-color: #111;' +
                     '}',
                 '#paneled-outlier-explorer ul#navigation-bar li.navigation:hover {' +
@@ -156,7 +156,7 @@
     General styles
     \--------------------------------------------------------------------------------------***/
 
-                '#paneled-outlier-explorer .hidden {' + '    display: none !important;' + '}',
+                '#paneled-outlier-explorer .wc-hidden {' + '    display: none !important;' + '}',
                 '#paneled-outlier-explorer circle.brushed {' +
                     '    stroke: orange;' +
                     '    stroke-width: 2px;' +
@@ -409,7 +409,7 @@
             .filter(function(di) {
                 return di.measure === d3$1.select(li).datum();
             })
-            .classed('hidden', !checked);
+            .classed('wc-hidden', !checked);
 
         //If any checkbox is unchecked, uncheck measureListCheckbox.
         toggleCharts(chart, false);
@@ -427,7 +427,7 @@
                 .enter()
                 .append('li')
                 .classed('navigation', true)
-                .classed('active', function(d) {
+                .classed('wc-active', function(d) {
                     return d === 'Charts';
                 })
                 .attr('id', function(d) {
@@ -441,18 +441,18 @@
                         .filter(function(di) {
                             return di === d;
                         })
-                        .classed('active', true);
+                        .classed('wc-active', true);
                     navigationButtons
                         .filter(function(di) {
                             return di !== d;
                         })
-                        .classed('active', false);
+                        .classed('wc-active', false);
                     if (d === 'Charts') {
-                        d3$1.select('#Listing').classed('hidden', true);
-                        d3$1.select('#Charts').classed('hidden', false);
+                        d3$1.select('#Listing').classed('wc-hidden', true);
+                        d3$1.select('#Charts').classed('wc-hidden', false);
                     } else {
-                        d3$1.select('#Charts').classed('hidden', true);
-                        d3$1.select('#Listing').classed('hidden', false);
+                        d3$1.select('#Charts').classed('wc-hidden', true);
+                        d3$1.select('#Listing').classed('wc-hidden', false);
                     }
                 }),
             //Create controls header.
@@ -654,7 +654,7 @@
         this.listing.wrap.attr('id', 'Listing');
         this.listing.parent = this;
         this.listing.init(this.data.sorted);
-        this.listing.wrap.classed('hidden', true);
+        this.listing.wrap.classed('wc-hidden', true);
 
         //Define custom event listener for filters.
         this.wrap.selectAll('#left-side .wc-controls .control-group').on('change', function(d) {
@@ -746,14 +746,14 @@
                 _this.wrap.selectAll('.wc-chart-title span').style('visibility', 'visible');
             })
             .on('mouseout', function() {
-                _this.wrap.selectAll('.wc-chart-title span').style('visibility', 'hidden');
+                _this.wrap.selectAll('.wc-chart-title span').style('visibility', 'wc-hidden');
             })
             .select('.wc-chart-title')
             .append('span')
             .classed('remove-chart chart-button', true)
             .html('&#10006;')
             .attr('title', 'Remove chart')
-            .style('visibility', 'hidden')
+            .style('visibility', 'wc-hidden')
             .on('click', function() {
                 //Minimize chart.
                 if (_this.wrap.classed('full-screen')) m__imize(_this);
@@ -779,7 +779,7 @@
         //Hide measures not listed in [ settings.measures ].
         this.wrap
             .classed(this.currentMeasure.replace(/[^a-z0-9-]/gi, '-'), true)
-            .classed('hidden', this.config.measures.indexOf(this.currentMeasure) === -1);
+            .classed('wc-hidden', this.config.measures.indexOf(this.currentMeasure) === -1);
     }
 
     function onPreprocess() {

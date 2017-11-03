@@ -6,7 +6,7 @@ export default function defineStyles() {
 
             '#paneled-outlier-explorer #controls-header {' +
                 '    margin: 0;' +
-                '    overflow: hidden;' +
+                '    overflow: wc-hidden;' +
                 '    background-color: #333;' +
                 '    width: 24%;' +
                 '    float: left;' +
@@ -60,7 +60,7 @@ export default function defineStyles() {
                 '    list-style-type: none;' +
                 '    margin: 0;' +
                 '    padding: 0;' +
-                '    overflow: hidden;' +
+                '    overflow: wc-hidden;' +
                 '    background-color: #333;' +
                 '    width: 75%;' +
                 '    float: right;' +
@@ -112,7 +112,7 @@ export default function defineStyles() {
                 '    padding: 0px 3px 1px 3px;' +
                 '    font-size: 75%;' +
                 '    margin-left: 5px;' +
-                '    visibility:hidden;' +
+                '    visibility:wc-hidden;' +
                 '}',
             '#paneled-outlier-explorer div.wc-layout.wc-small-multiples#Charts > div.wc-chart .chart-button:hover {' +
                 '    background: black;' +
