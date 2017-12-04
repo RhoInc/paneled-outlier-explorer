@@ -88,7 +88,7 @@ export default function init(data) {
     this.listing.wrap.attr('id', 'Listing');
     this.listing.parent = this;
     this.listing.init(this.data.sorted);
-    this.listing.wrap.classed('hidden', true);
+    this.listing.wrap.classed('wc-hidden', true);
 
     //Define custom event listener for filters.
     this.wrap.selectAll('#left-side .wc-controls .control-group').on('change', function(d) {

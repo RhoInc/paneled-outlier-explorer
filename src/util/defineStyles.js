@@ -6,7 +6,7 @@ export default function defineStyles() {
 
             '#paneled-outlier-explorer #controls-header {' +
                 '    margin: 0;' +
-                '    overflow: hidden;' +
+                '    overflow: wc-hidden;' +
                 '    background-color: #333;' +
                 '    width: 24%;' +
                 '    float: left;' +
@@ -60,7 +60,7 @@ export default function defineStyles() {
                 '    list-style-type: none;' +
                 '    margin: 0;' +
                 '    padding: 0;' +
-                '    overflow: hidden;' +
+                '    overflow: wc-hidden;' +
                 '    background-color: #333;' +
                 '    width: 75%;' +
                 '    float: right;' +
@@ -75,7 +75,7 @@ export default function defineStyles() {
                 '    padding: 14px 16px;' +
                 '    text-decoration: none;' +
                 '}',
-            '#paneled-outlier-explorer ul#navigation-bar li.navigation.active {' +
+            '#paneled-outlier-explorer ul#navigation-bar li.navigation.wc-active {' +
                 '    background-color: #111;' +
                 '}',
             '#paneled-outlier-explorer ul#navigation-bar li.navigation:hover {' +
@@ -112,7 +112,7 @@ export default function defineStyles() {
                 '    padding: 0px 3px 1px 3px;' +
                 '    font-size: 75%;' +
                 '    margin-left: 5px;' +
-                '    visibility:hidden;' +
+                '    visibility:wc-hidden;' +
                 '}',
             '#paneled-outlier-explorer div.wc-layout.wc-small-multiples#Charts > div.wc-chart .chart-button:hover {' +
                 '    background: black;' +
@@ -145,7 +145,7 @@ export default function defineStyles() {
           General styles
         \--------------------------------------------------------------------------------------***/
 
-            '#paneled-outlier-explorer .hidden {' + '    display: none !important;' + '}',
+            '#paneled-outlier-explorer .wc-hidden {' + '    display: none !important;' + '}',
             '#paneled-outlier-explorer circle.brushed {' +
                 '    stroke: orange;' +
                 '    stroke-width: 2px;' +

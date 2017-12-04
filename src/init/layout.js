@@ -12,18 +12,18 @@ export default function layout() {
             .enter()
             .append('li')
             .classed('navigation', true)
-            .classed('active', d => d === 'Charts')
+            .classed('wc-active', d => d === 'Charts')
             .attr('id', d => d + '-nav')
             .text(d => d)
             .on('click', function(d) {
-                navigationButtons.filter(di => di === d).classed('active', true);
-                navigationButtons.filter(di => di !== d).classed('active', false);
+                navigationButtons.filter(di => di === d).classed('wc-active', true);
+                navigationButtons.filter(di => di !== d).classed('wc-active', false);
                 if (d === 'Charts') {
-                    select('#Listing').classed('hidden', true);
-                    select('#Charts').classed('hidden', false);
+                    select('#Listing').classed('wc-hidden', true);
+                    select('#Charts').classed('wc-hidden', false);
                 } else {
-                    select('#Charts').classed('hidden', true);
-                    select('#Listing').classed('hidden', false);
+                    select('#Charts').classed('wc-hidden', true);
+                    select('#Listing').classed('wc-hidden', false);
                 }
             }),
         //Create controls header.
