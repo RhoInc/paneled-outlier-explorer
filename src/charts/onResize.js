@@ -9,19 +9,22 @@ export default function onResize() {
 
     //Draw normal range.
     this.svg.select('.normal-range').remove();
-    this.svg.insert('rect', '.line-supergroup').classed('normal-range', true).attr({
-        x: this.x(this.x_dom[0]) - 1,
-        y: this.y(this.filtered_data[0][this.config.uln_col]),
-        width: this.plot_width + 2,
-        height:
-            this.y(this.filtered_data[0][this.config.lln_col]) -
-            this.y(this.filtered_data[0][this.config.uln_col]),
-        fill: 'green',
-        'fill-opacity': 0.05,
-        stroke: 'green',
-        'stroke-opacity': 1,
-        'clip-path': `url(#${this.id})`
-    });
+    this.svg
+        .insert('rect', '.line-supergroup')
+        .classed('normal-range', true)
+        .attr({
+            x: this.x(this.x_dom[0]) - 1,
+            y: this.y(this.filtered_data[0][this.config.uln_col]),
+            width: this.plot_width + 2,
+            height:
+                this.y(this.filtered_data[0][this.config.lln_col]) -
+                this.y(this.filtered_data[0][this.config.uln_col]),
+            fill: 'green',
+            'fill-opacity': 0.05,
+            stroke: 'green',
+            'stroke-opacity': 1,
+            'clip-path': `url(#${this.id})`
+        });
 
     //Capture each multiple's scale.
     this.package = {
@@ -32,7 +35,10 @@ export default function onResize() {
         domain: clone(this.config.y.domain),
         xScale: clone(this.x),
         yScale: clone(this.y),
-        brush: svg.brush().x(this.x).y(this.y)
+        brush: svg
+            .brush()
+            .x(this.x)
+            .y(this.y)
     };
     this.wrap.datum(this.package);
 

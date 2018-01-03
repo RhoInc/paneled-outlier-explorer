@@ -11,18 +11,18 @@ export default {
             vertical_space: 0
         },
         {
-            value_col: 'VISITN',
-            type: 'ordinal',
-            label: 'Visit Number',
-            rotate_tick_labels: false,
-            vertical_space: 0
-        },
-        {
             value_col: 'VISIT',
             type: 'ordinal',
             label: 'Visit',
             rotate_tick_labels: true,
             vertical_space: 100
+        },
+        {
+            value_col: 'VISITN',
+            type: 'ordinal',
+            label: 'Visit Number',
+            rotate_tick_labels: false,
+            vertical_space: 0
         }
     ],
     value_col: 'STRESN',

@@ -1,6 +1,6 @@
 {"title": "settings"
 ,"description": "JSON schema for paneled-outlier-explorer configuration"
-,"version": "1.0.0"
+,"version": "1.0.1"
 ,"type": "object"
 ,"properties":
     {"measure_col":
@@ -38,17 +38,17 @@
                 ,"rotate_tick_labels": false
                 ,"vertical_space": 0}
             ,
-                {"value_col": "VISITN"
-                ,"type": "ordinal"
-                ,"label": "Visit Number"
-                ,"rotate_tick_labels": false
-                ,"vertical_space": 0}
-            ,
                 {"value_col": "VISIT"
                 ,"type": "ordinal"
                 ,"label": "Visit"
                 ,"rotate_tick_labels": true
                 ,"vertical_space": 100}
+            ,
+                {"value_col": "VISITN"
+                ,"type": "ordinal"
+                ,"label": "Visit Number"
+                ,"rotate_tick_labels": false
+                ,"vertical_space": 0}
             ]}
     ,"value_col":
         {"title": "Result"
@@ -56,8 +56,8 @@
         ,"default": "STRESN"
         ,"type": "string"}
     ,"id_col":
-        {"title": "ID"
-        ,"description": "ID variable name"
+        {"title": "Identifier"
+        ,"description": "identifier variable name"
         ,"default": "USUBJID"
         ,"type": "string"}
     ,"unit_col":
@@ -66,16 +66,15 @@
         ,"default": "STRESU"
         ,"type": "string"}
     ,"lln_col":
-        {"title": "LLN"
+        {"title": "Lower Limit of Normal"
         ,"description": "lower limit of normal variable name"
-        ,"default": "STRNLO"
+        ,"default": "STNRLO"
         ,"type": "string"}
     ,"uln_col":
-        {"title": "ULN"
+        {"title": "Upper Limit of Normal"
         ,"description": "upper limit of normal variable name"
-        ,"default": "STRNHI"
+        ,"default": "STNRHI"
         ,"type": "string"}
-
     ,"measures":
         {"title": "Measure list"
         ,"description": "list of initially displayed measures"

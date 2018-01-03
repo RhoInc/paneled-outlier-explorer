@@ -13,7 +13,9 @@ export default function paneledOutlierExplorer(element, settings) {
     defineStyles();
 
     //Create container for controls.
-    select(element).append('div').attr('id', 'left-side');
+    select(element)
+        .append('div')
+        .attr('id', 'left-side');
 
     //Clone, merge, and sync settings and define chart.
     const initialSettings = clone(settings),

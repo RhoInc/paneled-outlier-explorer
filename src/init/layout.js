@@ -5,7 +5,9 @@ import toggleCharts from './toggleCharts';
 export default function layout() {
     const chart = this,
         //Create navigation bar.
-        navigationBar = select(this.div).insert('ul', ':first-child').attr('id', 'navigation-bar'),
+        navigationBar = select(this.div)
+            .insert('ul', ':first-child')
+            .attr('id', 'navigation-bar'),
         navigationButtons = navigationBar
             .selectAll('li.navigation')
             .data(['Charts', 'Listing'])
