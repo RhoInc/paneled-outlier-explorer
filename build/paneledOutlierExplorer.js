@@ -7,6 +7,75 @@
 })(this, function(d3, webcharts) {
     'use strict';
 
+    if (typeof Object.assign != 'function') {
+        (function() {
+            Object.assign = function(target) {
+                'use strict';
+
+                if (target === undefined || target === null) {
+                    throw new TypeError('Cannot convert undefined or null to object');
+                }
+
+                var output = Object(target);
+                for (var index = 1; index < arguments.length; index++) {
+                    var source = arguments[index];
+                    if (source !== undefined && source !== null) {
+                        for (var nextKey in source) {
+                            if (source.hasOwnProperty(nextKey)) {
+                                output[nextKey] = source[nextKey];
+                            }
+                        }
+                    }
+                }
+                return output;
+            };
+        })();
+    }
+
+    if (!Array.prototype.find) {
+        Object.defineProperty(Array.prototype, 'find', {
+            value: function value(predicate) {
+                // 1. Let O be ? ToObject(this value).
+                if (this == null) {
+                    throw new TypeError('"this" is null or not defined');
+                }
+
+                var o = Object(this);
+
+                // 2. Let len be ? ToLength(? Get(O, "length")).
+                var len = o.length >>> 0;
+
+                // 3. If IsCallable(predicate) is false, throw a TypeError exception.
+                if (typeof predicate !== 'function') {
+                    throw new TypeError('predicate must be a function');
+                }
+
+                // 4. If thisArg was supplied, let T be thisArg; else let T be undefined.
+                var thisArg = arguments[1];
+
+                // 5. Let k be 0.
+                var k = 0;
+
+                // 6. Repeat, while k < len
+                while (k < len) {
+                    // a. Let Pk be ! ToString(k).
+                    // b. Let kValue be ? Get(O, Pk).
+                    // c. Let testResult be ToBoolean(? Call(predicate, T, � kValue, k, O �)).
+                    // d. If testResult is true, return kValue.
+                    var kValue = o[k];
+                    if (predicate.call(thisArg, kValue, k, o)) {
+                        return kValue;
+                    }
+                    // e. Increase k by 1.
+                    k++;
+                }
+
+                // 7. Return undefined.
+                return undefined;
+            }
+        });
+    }
+
     function defineStyles() {
         var styles = [
                 /***--------------------------------------------------------------------------------------\
@@ -338,55 +407,24 @@
         throw new Error('Unable to copy [obj]! Its type is not supported.');
     }
 
-    if (typeof Object.assign != 'function') {
-        (function() {
-            Object.assign = function(target) {
-                'use strict';
-
-                if (target === undefined || target === null) {
-                    throw new TypeError('Cannot convert undefined or null to object');
-                }
-
-                var output = Object(target);
-                for (var index = 1; index < arguments.length; index++) {
-                    var source = arguments[index];
-                    if (source !== undefined && source !== null) {
-                        for (var nextKey in source) {
-                            if (source.hasOwnProperty(nextKey)) {
-                                output[nextKey] = source[nextKey];
-                            }
-                        }
-                    }
-                }
-                return output;
-            };
-        })();
-    }
-
-    var defaultSettings = {
+    var rendererSettings = {
         measure_col: 'TEST',
         time_cols: [
-            {
-                value_col: 'DY',
-                type: 'linear',
-                order: null,
-                label: 'Study Day',
-                rotate_tick_labels: false,
-                vertical_space: 0
-            },
             {
                 value_col: 'VISIT',
                 type: 'ordinal',
                 order: null,
+                order_col: 'VISITNUM',
                 label: 'Visit',
                 rotate_tick_labels: true,
                 vertical_space: 75
             },
             {
-                value_col: 'VISITN',
-                type: 'ordinal',
+                value_col: 'DY',
+                type: 'linear',
                 order: null,
-                label: 'Visit Number',
+                order_col: 'DY',
+                label: 'Study Day',
                 rotate_tick_labels: false,
                 vertical_space: 0
             }
@@ -398,8 +436,22 @@
         uln_col: 'STNRHI',
         measures: null,
         filters: null,
-        rotate_x_tick_labels: true,
+        multiples_sizing: {
+            width: 350,
+            height: 175
+        },
+        inliers: false,
+        normal_range_method: 'LLN-ULN',
+        normal_range_sd: 1.96,
+        normal_range_quantile_low: 0.05,
+        normal_range_quantile_high: 0.95,
+        visits_without_data: false,
+        unscheduled_visits: false,
+        unscheduled_visit_pattern: '/unscheduled|early termination/i',
+        unscheduled_visit_values: null // takes precedence over unscheduled_visit_pattern   visits_without_data: false,
+    };
 
+    var webchartsSettings = {
         x: {
             type: null, // sync to [ time_cols[0].type ]
             column: null, // sync to [ time_cols[0].value_col ]
@@ -423,14 +475,14 @@
         ],
         resizable: false,
         scale_text: false,
-        width: 400,
-        height: 200,
         margin: {
             bottom: 0,
             left: 50
         },
         gridlines: 'xy'
     };
+
+    var defaultSettings = Object.assign(rendererSettings, webchartsSettings);
 
     function syncSettings(settings) {
         var syncedSettings = clone(settings);
@@ -440,6 +492,21 @@
         syncedSettings.x.rotate_tick_labels = settings.time_cols[0].rotate_tick_labels;
         syncedSettings.y.column = settings.value_col;
         syncedSettings.marks[0].per = [settings.id_col, settings.measure_col];
+        syncedSettings.width = syncedSettings.multiples_sizing.width;
+        syncedSettings.height = syncedSettings.multiples_sizing.height;
+
+        //Convert unscheduled_visit_pattern from string to regular expression.
+        if (
+            typeof syncedSettings.unscheduled_visit_pattern === 'string' &&
+            syncedSettings.unscheduled_visit_pattern !== ''
+        ) {
+            var flags = settings.unscheduled_visit_pattern.replace(/.*?\/([gimy]*)$/, '$1'),
+                pattern = settings.unscheduled_visit_pattern.replace(
+                    new RegExp('^/(.*?)/' + flags + '$'),
+                    '$1'
+                );
+            syncedSettings.unscheduled_visit_regex = new RegExp(pattern, flags);
+        }
 
         return syncedSettings;
     }
@@ -450,6 +517,43 @@
             label: 'X-axis',
             option: 'x.column',
             require: true
+        },
+        {
+            type: 'checkbox',
+            label: 'Visits without data',
+            option: 'visits_without_data'
+        },
+        {
+            type: 'checkbox',
+            label: 'Unscheduled visits',
+            option: 'unscheduled_visits'
+        },
+        {
+            type: 'checkbox',
+            label: 'Normal range inliers',
+            option: 'inliers'
+        },
+        {
+            type: 'dropdown',
+            label: 'Normal range method',
+            option: 'normal_range_method',
+            values: ['None', 'LLN-ULN', 'Standard Deviation', 'Quantiles'],
+            require: true
+        },
+        {
+            type: 'number',
+            label: 'Number of standard deviations',
+            option: 'normal_range_sd'
+        },
+        {
+            type: 'number',
+            label: 'Lower quantile',
+            option: 'normal_range_quantile_low'
+        },
+        {
+            type: 'number',
+            label: 'Upper quantile',
+            option: 'normal_range_quantile_high'
         }
     ];
 
@@ -473,61 +577,148 @@
                 });
             });
 
+        //Remove unscheduled visit control if unscheduled visit pattern is unscpecified.
+        if (!(settings.unscheduled_visit_regex || settings.unscheduled_visit_values))
+            controlInputs.splice(
+                controlInputs
+                    .map(function(controlInput) {
+                        return controlInput.label;
+                    })
+                    .indexOf('Unscheduled visits'),
+                1
+            );
+
         return syncedControlInputs;
+    }
+
+    function removeVariables() {
+        var _this = this;
+
+        //Define set of required variables.
+        this.config.variables = d3
+            .set(
+                d3.merge([
+                    [this.config.measure_col],
+                    [this.config.id_col],
+                    this.config.time_cols.map(function(time_col) {
+                        return time_col.value_col;
+                    }),
+                    this.config.time_cols.map(function(time_col) {
+                        return time_col.order_col;
+                    }),
+                    [this.config.value_col],
+                    [this.config.unit_col],
+                    [this.config.lln_col],
+                    [this.config.uln_col],
+                    this.config.filters
+                        ? this.config.filters.map(function(filter) {
+                              return filter.value_col;
+                          })
+                        : []
+                ])
+            )
+            .values()
+            .filter(function(variable) {
+                return Object.keys(_this.data.initial[0]).indexOf(variable) > -1;
+            });
+
+        //Delete extraneous variables.
+        this.data.initial.forEach(function(d) {
+            for (var variable in d) {
+                if (_this.config.variables.indexOf(variable) < 0) delete d[variable];
+            }
+        });
+
+        //If data do not have normal range variables update normal range method setting and options.
+        if (
+            this.config.variables.indexOf(this.config.lln_col) < 0 ||
+            this.config.variables.indexOf(this.config.uln_col) < 0
+        ) {
+            if (this.config.normal_range_method === 'LLN-ULN')
+                this.config.normal_range_method = 'Standard Deviation';
+            this.controls.config.inputs
+                .find(function(input) {
+                    return input.option === 'normal_range_method';
+                })
+                .values.splice(1, 1);
+        }
+    }
+
+    function deriveVariables() {
+        var _this = this;
+
+        var ordinalTimeSettings = this.config.time_cols.find(function(time_col) {
+            return time_col.type === 'ordinal';
+        });
+
+        this.data.raw.forEach(function(d) {
+            //brushed datum placeholder
+            d.brushed = false;
+
+            //Concatenate measure and unit.
+            if (d[_this.config.unit_col])
+                d.measure_unit =
+                    d[_this.config.measure_col] + ' (' + d[_this.config.unit_col] + ')';
+            else d.measure_unit = d[_this.config.measure_col];
+
+            //Identify abnormal results.
+            var lo =
+                    d[_this.config.lln_col] !== undefined
+                        ? +d[_this.config.value_col] < +d[_this.config.lln_col]
+                        : false,
+                hi =
+                    d[_this.config.uln_col] !== undefined
+                        ? +d[_this.config.value_col] > +d[_this.config.uln_col]
+                        : false;
+            d.abnormal = lo || hi;
+
+            //Identify unscheduled visits.
+            d.unscheduled = false;
+            if (ordinalTimeSettings) {
+                if (_this.config.unscheduled_visit_values)
+                    d.unscheduled =
+                        _this.config.unscheduled_visit_values.indexOf(
+                            d[ordinalTimeSettings.value_col]
+                        ) > -1;
+                else if (_this.config.unscheduled_visit_regex)
+                    d.unscheduled = _this.config.unscheduled_visit_regex.test(
+                        d[ordinalTimeSettings.value_col]
+                    );
+            }
+        });
     }
 
     function defineData(data) {
         var _this = this;
 
         this.data = {
-            raw: data,
-            sorted: data
-                .filter(function(d) {
-                    return (
-                        /^[0-9.]+$/.test(d[_this.config.value_col]) &&
-                        !/^\s*$/.test(d[_this.config.measure_col])
-                    );
-                })
-                .sort(function(a, b) {
-                    var aValue = a[_this.config.measure_col],
-                        bValue = b[_this.config.measure_col],
-                        leftSort = aValue < bValue,
-                        rightSort = aValue > bValue,
-                        aID = a[_this.config.id_col],
-                        bID = b[_this.config.id_col],
-                        aTime = a[_this.config.time_col],
-                        bTime = b[_this.config.time_col];
-
-                    var sort = void 0;
-                    if (_this.config.measures && _this.config.measures.length) {
-                        var aPos = _this.config.measures.indexOf(aValue),
-                            bPos = _this.config.measures.indexOf(bValue),
-                            diff = aPos > -1 && bPos > -1 ? aPos - bPos : null;
-
-                        sort = diff
-                            ? diff
-                            : aPos > -1 ? -1 : bPos > -1 ? 1 : leftSort ? -1 : rightSort ? 1 : 0;
-                    } else sort = leftSort ? -1 : rightSort ? 1 : 0;
-
-                    if (!sort) sort = aID < bID ? -1 : aID > bID ? 1 : +aTime - +bTime;
-
-                    return sort;
-                })
+            initial: data
         };
-        if (this.data.raw.length !== this.data.sorted.length)
+
+        //Remove extraneous variables.
+        removeVariables.call(this);
+
+        //Remove invalid data.
+        this.data.raw = this.data.initial.filter(function(d) {
+            return (
+                !/^\s*$/.test(d[_this.config.measure_col]) &&
+                /^[0-9.]+$/.test(d[_this.config.value_col])
+            );
+        });
+
+        //Derive additional variables.
+        deriveVariables.call(this);
+
+        //Warn user of dropped records.
+        if (this.data.raw.length !== this.data.initial.length)
             console.warn(
-                this.data.raw.length -
-                    this.data.sorted.length +
+                this.data.initial.length -
+                    this.data.raw.length +
                     ' non-numeric observations have been removed from the data.'
             );
-        this.data.sorted.forEach(function(d) {
-            d.brushed = false;
-            if (d[_this.config.unit_col])
-                d.measure_unit =
-                    d[_this.config.measure_col] + ' (' + d[_this.config.unit_col] + ')';
-            else d.measure_unit = d[_this.config.measure_col];
-        });
-        this.data.filtered = this.data.sorted;
+
+        //Define placeholder data array.s
+        this.data.filtered = this.data.raw;
         this.data.brushed = [];
         this.data.selectedIDs = [];
     }
@@ -537,7 +728,7 @@
 
         this.config.allMeasures = d3
             .set(
-                this.data.sorted.map(function(d) {
+                this.data.raw.map(function(d) {
                     return d.measure_unit;
                 })
             )
@@ -560,6 +751,79 @@
             this.config.measures && this.config.measures.length
                 ? this.config.measures
                 : this.config.allMeasures;
+    }
+
+    function defineVisitOrder() {
+        var _this = this;
+
+        this.config.time_cols.forEach(function(time_settings) {
+            if (time_settings.type === 'ordinal') {
+                var visits = void 0,
+                    visitOrder = void 0;
+
+                //Given an ordering variable sort a unique set of visits by the ordering variable.
+                if (
+                    time_settings.order_col &&
+                    _this.data.raw[0].hasOwnProperty(time_settings.order_col)
+                ) {
+                    //Define a unique set of visits with visit order concatenated.
+                    visits = d3
+                        .set(
+                            _this.data.raw.map(function(d) {
+                                return (
+                                    d[time_settings.order_col] + '|' + d[time_settings.value_col]
+                                );
+                            })
+                        )
+                        .values();
+
+                    //Sort visits.
+                    visitOrder = visits
+                        .sort(function(a, b) {
+                            var aOrder = a.split('|')[0],
+                                bOrder = b.split('|')[0],
+                                diff = +aOrder - +bOrder;
+                            return diff ? diff : d3.ascending(a, b);
+                        })
+                        .map(function(visit) {
+                            return visit.split('|')[1];
+                        });
+                } else {
+                    //Otherwise sort a unique set of visits alphanumerically.
+                    //Define a unique set of visits.
+                    visits = d3
+                        .set(
+                            _this.data.raw.map(function(d) {
+                                return d[time_settings.value_col];
+                            })
+                        )
+                        .values();
+
+                    //Sort visits;
+                    visitOrder = visits.sort();
+                }
+
+                //Set x-axis domain.
+                if (time_settings.order) {
+                    //If a visit order is specified, use it and concatenate any unspecified visits at the end.
+                    time_settings.order = time_settings.order.concat(
+                        visitOrder.filter(function(visit) {
+                            return time_settings.order.indexOf(visit) < 0;
+                        })
+                    );
+                } else
+                    //Otherwise use data-driven visit order.
+                    time_settings.order = visitOrder;
+
+                //Define domain.
+                time_settings.domain = time_settings.order;
+            } else if (time_settings.type === 'linear') {
+                time_settings.order = null;
+                time_settings.domain = d3.extent(_this.data.raw, function(d) {
+                    return +d[time_settings.value_col];
+                });
+            }
+        });
     }
 
     function toggleCharts(chart) {
@@ -738,7 +1002,7 @@
 
         //Define filtered data.
         if (d.type === 'subsetter') {
-            this.data.filtered = this.data.sorted.filter(function(d) {
+            this.data.filtered = this.data.raw.filter(function(d) {
                 var filtered = false;
 
                 _this.controls.config.inputs
@@ -758,31 +1022,22 @@
         this.listing.draw(this.data.filtered);
     }
 
-    function init(data) {
+    function customizeControls() {
         var _this = this;
 
-        var chart = this;
+        var context = this,
+            controls = this.controls.wrap
+                .selectAll('.control-group')
+                .classed('hidden', function(d) {
+                    return (
+                        (_this.config.normal_range_method !== 'Standard Deviation' &&
+                            /standard deviation/i.test(d.label)) ||
+                        (_this.config.normal_range_method !== 'Quantiles' &&
+                            /quantile/i.test(d.label))
+                    );
+                });
 
-        //Attach data arrays to central chart object.
-        defineData.call(this, data);
-
-        //Capture unique measures in an array and define initially displayed measures.
-        captureMeasures.call(this);
-
-        //Define layout of renderer.
-        layout.call(this);
-
-        //Initialize charts.
-        webcharts.multiply(this, this.data.sorted, 'measure_unit');
-
-        //Initialize listing.
-        this.listing.config.cols = Object.keys(data[0]).filter(function(key) {
-            return ['brushed', 'measure_unit'].indexOf(key) === -1;
-        }); // remove system variables from listing
-        this.listing.init(this.data.sorted);
-
-        //Define custom event listener for filters.
-        var controls = this.controls.wrap.selectAll('.control-group');
+        //Define x-axis option labels.
         controls
             .filter(function(control) {
                 return control.label === 'X-axis';
@@ -796,20 +1051,103 @@
                     .pop().label;
             });
 
-        controls.on('change', function(d) {
-            d.value = d3
+        //Define x-axis option labels.
+        controls
+            .filter(function(control) {
+                return control.label === 'X-axis';
+            })
+            .selectAll('option')
+            .property('label', function(d) {
+                return _this.config.time_cols
+                    .filter(function(time_col) {
+                        return time_col.value_col === d;
+                    })
+                    .pop().label;
+            });
+
+        //Add custom x-domain and filter functionality.
+        controls
+            .filter(function(d) {
+                return d.type === 'subsetter' || d.label === 'X-axis';
+            })
+            .on('change', function(d) {
+                d.value = d3
+                    .select(this)
+                    .selectAll('option')
+                    .filter(function() {
+                        return this.selected;
+                    })
+                    .text();
+                applyFilters.call(context, d);
+            });
+
+        //Add custom normal range functionality.
+        var normalRangeControl = controls.filter(function(d) {
+            return d.label === 'Normal range method';
+        });
+        normalRangeControl.on('change', function(d) {
+            var normal_range_method = d3
                 .select(this)
-                .selectAll('option')
-                .filter(function() {
-                    return this.selected;
-                })
+                .select('option:checked')
                 .text();
-            applyFilters.call(chart, d);
+
+            controls.classed('hidden', function(d) {
+                return (
+                    (normal_range_method !== 'Standard Deviation' &&
+                        /standard deviation/i.test(d.label)) ||
+                    (normal_range_method !== 'Quantiles' && /quantile/i.test(d.label))
+                );
+            });
         });
     }
 
-    function onInit() {
+    function init(data) {
+        defineData.call(this, data);
+
+        //Capture unique set of measures in data.
+        captureMeasures.call(this);
+
+        //Capture ordered set of visits.
+        defineVisitOrder.call(this);
+
+        //Define layout of renderer.
+        layout.call(this);
+
+        //Initialize charts.
+        webcharts.multiply(this, this.data.raw, 'measure_unit', this.config.allMeasures);
+
+        //Initialize listing.
+        this.listing.config.cols = Object.keys(data[0]).filter(function(key) {
+            return ['brushed', 'measure_unit', 'abnormal', 'abnormalID'].indexOf(key) === -1;
+        }); // remove system variables from listing
+        this.listing.init(this.data.raw);
+
+        //Define custom event listener for filters.
+        customizeControls.call(this);
+    }
+
+    function setCurrentMeasure() {
         this.currentMeasure = this.filters[0].val;
+    }
+
+    function defineMeasureData() {
+        var _this = this;
+
+        this.measure_data = this.raw_data.filter(function(d) {
+            return d.measure_unit === _this.currentMeasure;
+        });
+        this.results = this.measure_data
+            .map(function(d) {
+                return +d[_this.config.value_col];
+            })
+            .sort(function(a, b) {
+                return a - b;
+            });
+    }
+
+    function onInit() {
+        setCurrentMeasure.call(this);
+        defineMeasureData.call(this);
     }
 
     function minimize(chart) {
@@ -924,33 +1262,181 @@
             .classed('hidden', this.config.measures.indexOf(this.currentMeasure) === -1);
     }
 
-    function onPreprocess() {
+    function removeVisitsWithoutData() {
         var _this = this;
 
-        //Set the y-domain individually for each measure.
-        this.config.y.domain = d3.extent(
-            this.raw_data.filter(function(d) {
-                return d.measure_unit === _this.currentMeasure;
-            }),
-            function(d) {
-                return +d[_this.config.value_col];
-            }
+        if (!this.config.visits_without_data) {
+            this.config.x.domain = this.config.x.domain.filter(function(visit) {
+                return (
+                    d3
+                        .set(
+                            _this.measure_data.map(function(d) {
+                                return d[_this.config.x.column];
+                            })
+                        )
+                        .values()
+                        .indexOf(visit) > -1
+                );
+            });
+        }
+    }
+
+    function removeUnscheduledVisits() {
+        var _this = this;
+
+        if (!this.config.unscheduled_visits) {
+            if (this.config.unscheduled_visit_values)
+                this.config.x.domain = this.config.x.domain.filter(function(visit) {
+                    return _this.config.unscheduled_visit_values.indexOf(visit) < 0;
+                });
+            else if (this.config.unscheduled_visit_regex)
+                this.config.x.domain = this.config.x.domain.filter(function(visit) {
+                    return !_this.config.unscheduled_visit_regex.test(visit);
+                });
+        }
+    }
+
+    function setXoptions() {
+        var _this = this;
+
+        //Update x-object.
+        Object.assign(
+            this.config.x,
+            this.config.time_cols.find(function(time_col) {
+                return time_col.value_col === _this.config.x.column;
+            })
         );
+
+        //Remove visits without data from x-domain if x-type is ordinal.
+        if (this.config.x.type === 'ordinal') {
+            this.config.x.domain = this.config.x.order;
+            removeVisitsWithoutData.call(this);
+            removeUnscheduledVisits.call(this);
+        }
+
+        //Delete domain setting if x-type is linear
+        if (this.config.x.type !== 'ordinal') delete this.config.x.domain;
+
+        //Update bottom margin.
+        this.config.margin.bottom = this.config.x.vertical_space;
+    }
+
+    function setYoptions() {
+        var _this = this;
+
+        this.config.y.domain = d3.extent(this.measure_data, function(d) {
+            return +d[_this.config.value_col];
+        });
         var range = this.config.y.domain[1] - this.config.y.domain[0];
         this.config.y.format = range < 0.1 ? '.3f' : range < 1 ? '.2f' : range < 10 ? '.1f' : '1d';
+    }
 
-        //Sync config with X-axis selection.
-        var xInput = this.controls.config.inputs.filter(function(input) {
-                return input.label === 'X-axis';
-            })[0],
-            time_col = this.config.time_cols.filter(function(time_col) {
-                return time_col.value_col === _this.config.x.column;
-            })[0];
+    function deriveStatistics() {
+        var _this = this;
 
-        this.config.x.type = time_col.type;
-        this.config.x.order = time_col.order;
-        this.config.x.rotate_tick_labels = time_col.rotate_tick_labels;
-        this.config.margin.bottom = time_col.vertical_space;
+        if (this.config.normal_range_method === 'LLN-ULN') {
+            this.lln = function(d) {
+                return d instanceof Object
+                    ? +d[_this.config.lln_col]
+                    : d3.median(_this.measure_data, function(d) {
+                          return +d[_this.config.lln_col];
+                      });
+            };
+            this.uln = function(d) {
+                return d instanceof Object
+                    ? +d[_this.config.uln_col]
+                    : d3.median(_this.measure_data, function(d) {
+                          return +d[_this.config.uln_col];
+                      });
+            };
+        } else if (this.config.normal_range_method === 'Standard Deviation') {
+            this.mean = d3.mean(this.results);
+            this.sd = d3.deviation(this.results);
+            this.lln = function() {
+                return _this.mean - _this.config.normal_range_sd * _this.sd;
+            };
+            this.uln = function() {
+                return _this.mean + _this.config.normal_range_sd * _this.sd;
+            };
+        } else if (this.config.normal_range_method === 'Quantiles') {
+            this.lln = function() {
+                return d3.quantile(_this.results, _this.config.normal_range_quantile_low);
+            };
+            this.uln = function() {
+                return d3.quantile(_this.results, _this.config.normal_range_quantile_high);
+            };
+        } else {
+            this.lln = function(d) {
+                return d instanceof Object ? d[_this.config.value_col] + 1 : _this.results[0];
+            };
+            this.uln = function(d) {
+                return d instanceof Object
+                    ? d[_this.config.value_col] - 1
+                    : _this.results[_this.results.length - 1];
+            };
+        }
+    }
+
+    function deriveVariables$1() {
+        var _this = this;
+
+        this.measure_data.forEach(function(d) {
+            d.abnormal =
+                d[_this.config.value_col] < _this.lln(d) ||
+                d[_this.config.value_col] > _this.uln(d);
+        });
+    }
+
+    function identifyNormalParticipants() {
+        var _this = this;
+
+        this.abnormalIDs = d3
+            .set(
+                this.measure_data
+                    .filter(function(d) {
+                        return d.abnormal;
+                    })
+                    .map(function(d) {
+                        return d[_this.config.id_col];
+                    })
+            )
+            .values();
+        this.measure_data.forEach(function(d) {
+            d.abnormalID = _this.abnormalIDs.indexOf(d[_this.config.id_col]) > -1;
+        });
+    }
+
+    function filterData() {
+        this.raw_data = this.measure_data;
+        if (!this.config.inliers)
+            this.raw_data = this.raw_data.filter(function(d) {
+                return d.abnormalID;
+            });
+        if (!this.config.unscheduled_visits)
+            this.raw_data = this.raw_data.filter(function(d) {
+                return !d.unscheduled;
+            });
+    }
+
+    function hideNormalRangeControls() {
+        //console.log(
+        //d3.select(this.parent.div)
+        //    .selectAll('.control-group')
+        //    .filter(d => ['normal_range_sd', 'normal_range_quantile_low', 'normal_range_quantile_high'].indexOf(d.option) > -1)
+        //    .classed('hidden', d =>
+        //        (d.option === 'normal_range_sd' && this.config.normal_range_method !== 'Standard Deviations') ||
+        //        (['normal_range_quantile_low', 'normal_range_quantile_high'].indexOf(d.option) > -1 &&  this.config.normal_range_method !== 'Quantiles')
+        //    ));
+    }
+
+    function onPreprocess() {
+        setXoptions.call(this);
+        setYoptions.call(this);
+        deriveStatistics.call(this);
+        deriveVariables$1.call(this);
+        identifyNormalParticipants.call(this);
+        filterData.call(this);
+        hideNormalRangeControls.call(this);
     }
 
     function onDatatransform() {}
@@ -964,6 +1450,24 @@
             this.parentNode.appendChild(this);
         });
     };
+
+    function drawNormalRange() {
+        this.svg.select('.normal-range').remove();
+        this.svg
+            .insert('rect', '.line-supergroup')
+            .classed('normal-range', true)
+            .attr({
+                x: this.x(this.x_dom[0]) - 5, // make sure left side of normal range does not appear in chart
+                y: this.y(this.uln()),
+                width: this.plot_width + 10, // make sure right side of normal range does not appear in chart
+                height: this.y(this.lln()) - this.y(this.uln()),
+                fill: 'green',
+                'fill-opacity': 0.05,
+                stroke: 'green',
+                'stroke-opacity': 1,
+                'clip-path': 'url(#' + this.id + ')'
+            });
+    }
 
     /**
      * @author Peter Kelley
@@ -1272,23 +1776,9 @@
         } else {
             this.svg.selectAll('*').classed('hidden', false);
             this.svg.select('text.no-data').remove();
-            this.svg.select('.normal-range').remove();
-            this.svg
-                .insert('rect', '.line-supergroup')
-                .classed('normal-range', true)
-                .attr({
-                    x: this.x(this.x_dom[0]) - 5, // make sure left side of normal range does not appear in chart
-                    y: this.y(this.filtered_data[0][this.config.uln_col]),
-                    width: this.plot_width + 10, // make sure right side of normal range does not appear in chart
-                    height:
-                        this.y(this.filtered_data[0][this.config.lln_col]) -
-                        this.y(this.filtered_data[0][this.config.uln_col]),
-                    fill: 'green',
-                    'fill-opacity': 0.05,
-                    stroke: 'green',
-                    'stroke-opacity': 1,
-                    'clip-path': 'url(#' + this.id + ')'
-                });
+
+            //Draw normal range.
+            drawNormalRange.call(this);
 
             //Capture each multiple's scale.
             this.package = {
@@ -1371,6 +1861,7 @@
         onDestroy: onDestroy$1
     };
 
+    //Utility polyfills
     function paneledOutlierExplorer() {
         var element = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 'body';
         var settings = arguments[1];
