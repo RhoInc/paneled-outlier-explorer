@@ -1,3 +1,5 @@
+import defineMeasureData from './onInit/defineMeasureData';
+
 export default function onInit() {
-    this.currentMeasure = this.filters[0].val;
+    defineMeasureData.call(this);
 }

@@ -1,10 +1,8 @@
 import { select } from 'd3';
-import doLineSegmentsIntersect from './lineIntersection';
+import doLineSegmentsIntersect from './brushMarks/doLineSegmentsIntersect';
 
-export default function brushMarks(chart, lines) {
-    chart.parent.brushedMeasure = chart.currentMeasure;
-
-    const extent = chart.config.extent,
+export default function brushMarks() {
+    const extent = this.config.extent,
         x0 = extent[0][0], // top left x-coordinate
         y0 = extent[1][1], // top left y-coordinate
         x1 = extent[1][0], // bottom right x-coordinate
@@ -16,7 +14,7 @@ export default function brushMarks(chart, lines) {
         sides = [top, right, bottom, left];
 
     //Determine which lines fall inside the brush.
-    const brushedLines = lines.filter((d, i) => {
+    const brushedLines = this.lines.filter((d, i) => {
         let intersection = false;
         d.lines.forEach((line, j) => {
             sides.forEach((side, k) => {
@@ -34,29 +32,29 @@ export default function brushMarks(chart, lines) {
     });
 
     //Attached brushed IDs to chart parent object.
-    chart.parent.data.selectedIDs = brushedLines.data().map(d => d.id);
+    this.parent.data.selectedIDs = brushedLines.data().map(d => d.id);
 
     //Highlight brushed lines.
-    chart.parent.wrap
+    this.parent.wrap
         .selectAll('.line-supergroup g.line path')
         .classed('brushed', false)
-        .filter(d => chart.parent.data.selectedIDs.indexOf(d.id) > -1)
+        .filter(d => this.parent.data.selectedIDs.indexOf(d.id) > -1)
         .classed('brushed', true)
         .each(function(d) {
             select(this.parentNode).moveToFront();
         });
 
     //Draw listing displaying brushed IDs first.
-    if (chart.parent.data.selectedIDs.length) {
-        chart.parent.data.filtered.forEach(d => {
-            d.brushed = chart.parent.data.selectedIDs.indexOf(d[chart.config.id_col]) > -1;
+    if (this.parent.data.selectedIDs.length) {
+        this.parent.data.filtered.forEach(d => {
+            d.brushed = this.parent.data.selectedIDs.indexOf(d[this.config.id_col]) > -1;
         });
-        chart.parent.data.brushed = chart.parent.data.filtered.filter(d => d.brushed);
-        chart.parent.listing.draw(chart.parent.data.brushed);
+        this.parent.data.brushed = this.parent.data.filtered.filter(d => d.brushed);
+        this.parent.listing.draw(this.parent.data.brushed);
         select('#Listing-nav').classed('brushed', true);
     } else {
-        chart.parent.data.brushed = [];
-        chart.parent.listing.draw(chart.parent.data.filtered);
+        this.parent.data.brushed = [];
+        this.parent.listing.draw(this.parent.data.filtered);
         select('#Listing-nav').classed('brushed', false);
     }
 }

@@ -1,29 +1,23 @@
 import clone from './util/clone';
 
-export default {
+export const rendererSettings = {
     measure_col: 'TEST',
     time_cols: [
-        {
-            value_col: 'DY',
-            type: 'linear',
-            order: null,
-            label: 'Study Day',
-            rotate_tick_labels: false,
-            vertical_space: 0
-        },
         {
             value_col: 'VISIT',
             type: 'ordinal',
             order: null,
+            order_col: 'VISITNUM',
             label: 'Visit',
             rotate_tick_labels: true,
             vertical_space: 75
         },
         {
-            value_col: 'VISITN',
-            type: 'ordinal',
+            value_col: 'DY',
+            type: 'linear',
             order: null,
-            label: 'Visit Number',
+            order_col: 'DY',
+            label: 'Study Day',
             rotate_tick_labels: false,
             vertical_space: 0
         }
@@ -35,8 +29,22 @@ export default {
     uln_col: 'STNRHI',
     measures: null,
     filters: null,
-    rotate_x_tick_labels: true,
+    multiples_sizing: {
+        width: 350,
+        height: 175
+    },
+    inliers: false,
+    normal_range_method: 'LLN-ULN',
+    normal_range_sd: 1.96,
+    normal_range_quantile_low: 0.05,
+    normal_range_quantile_high: 0.95,
+    visits_without_data: false,
+    unscheduled_visits: false,
+    unscheduled_visit_pattern: '/unscheduled|early termination/i',
+    unscheduled_visit_values: null // takes precedence over unscheduled_visit_pattern   visits_without_data: false,
+};
 
+export const webchartsSettings = {
     x: {
         type: null, // sync to [ time_cols[0].type ]
         column: null, // sync to [ time_cols[0].value_col ]
@@ -60,14 +68,14 @@ export default {
     ],
     resizable: false,
     scale_text: false,
-    width: 400,
-    height: 200,
     margin: {
         bottom: 0,
         left: 50
     },
     gridlines: 'xy'
 };
+
+export default Object.assign(rendererSettings, webchartsSettings);
 
 export function syncSettings(settings) {
     const syncedSettings = clone(settings);
@@ -77,6 +85,21 @@ export function syncSettings(settings) {
     syncedSettings.x.rotate_tick_labels = settings.time_cols[0].rotate_tick_labels;
     syncedSettings.y.column = settings.value_col;
     syncedSettings.marks[0].per = [settings.id_col, settings.measure_col];
+    syncedSettings.width = syncedSettings.multiples_sizing.width;
+    syncedSettings.height = syncedSettings.multiples_sizing.height;
+
+    //Convert unscheduled_visit_pattern from string to regular expression.
+    if (
+        typeof syncedSettings.unscheduled_visit_pattern === 'string' &&
+        syncedSettings.unscheduled_visit_pattern !== ''
+    ) {
+        const flags = settings.unscheduled_visit_pattern.replace(/.*?\/([gimy]*)$/, '$1'),
+            pattern = settings.unscheduled_visit_pattern.replace(
+                new RegExp('^/(.*?)/' + flags + '$'),
+                '$1'
+            );
+        syncedSettings.unscheduled_visit_regex = new RegExp(pattern, flags);
+    }
 
     return syncedSettings;
 }
@@ -87,6 +110,43 @@ export const controlInputs = [
         label: 'X-axis',
         option: 'x.column',
         require: true
+    },
+    {
+        type: 'checkbox',
+        label: 'Visits without data',
+        option: 'visits_without_data'
+    },
+    {
+        type: 'checkbox',
+        label: 'Unscheduled visits',
+        option: 'unscheduled_visits'
+    },
+    {
+        type: 'checkbox',
+        label: 'Normal range inliers',
+        option: 'inliers'
+    },
+    {
+        type: 'dropdown',
+        label: 'Normal range method',
+        option: 'normal_range_method',
+        values: ['None', 'LLN-ULN', 'Standard Deviation', 'Quantiles'],
+        require: true
+    },
+    {
+        type: 'number',
+        label: 'Number of standard deviations',
+        option: 'normal_range_sd'
+    },
+    {
+        type: 'number',
+        label: 'Lower quantile',
+        option: 'normal_range_quantile_low'
+    },
+    {
+        type: 'number',
+        label: 'Upper quantile',
+        option: 'normal_range_quantile_high'
     }
 ];
 
@@ -107,6 +167,13 @@ export function syncControlInputs(controlInputs, settings) {
                 multiple: false
             });
         });
+
+    //Remove unscheduled visit control if unscheduled visit pattern is unscpecified.
+    if (!(settings.unscheduled_visit_regex || settings.unscheduled_visit_values))
+        controlInputs.splice(
+            controlInputs.map(controlInput => controlInput.label).indexOf('Unscheduled visits'),
+            1
+        );
 
     return syncedControlInputs;
 }

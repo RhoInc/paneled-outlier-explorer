@@ -4,8 +4,77 @@
         : typeof define === 'function' && define.amd
           ? define(['d3', 'webcharts'], factory)
           : (global.paneledOutlierExplorer = factory(global.d3, global.webCharts));
-})(this, function(d3, webcharts) {
+})(this, function(d3$1, webcharts) {
     'use strict';
+
+    if (typeof Object.assign != 'function') {
+        (function() {
+            Object.assign = function(target) {
+                'use strict';
+
+                if (target === undefined || target === null) {
+                    throw new TypeError('Cannot convert undefined or null to object');
+                }
+
+                var output = Object(target);
+                for (var index = 1; index < arguments.length; index++) {
+                    var source = arguments[index];
+                    if (source !== undefined && source !== null) {
+                        for (var nextKey in source) {
+                            if (source.hasOwnProperty(nextKey)) {
+                                output[nextKey] = source[nextKey];
+                            }
+                        }
+                    }
+                }
+                return output;
+            };
+        })();
+    }
+
+    if (!Array.prototype.find) {
+        Object.defineProperty(Array.prototype, 'find', {
+            value: function value(predicate) {
+                // 1. Let O be ? ToObject(this value).
+                if (this == null) {
+                    throw new TypeError('"this" is null or not defined');
+                }
+
+                var o = Object(this);
+
+                // 2. Let len be ? ToLength(? Get(O, "length")).
+                var len = o.length >>> 0;
+
+                // 3. If IsCallable(predicate) is false, throw a TypeError exception.
+                if (typeof predicate !== 'function') {
+                    throw new TypeError('predicate must be a function');
+                }
+
+                // 4. If thisArg was supplied, let T be thisArg; else let T be undefined.
+                var thisArg = arguments[1];
+
+                // 5. Let k be 0.
+                var k = 0;
+
+                // 6. Repeat, while k < len
+                while (k < len) {
+                    // a. Let Pk be ! ToString(k).
+                    // b. Let kValue be ? Get(O, Pk).
+                    // c. Let testResult be ToBoolean(? Call(predicate, T, � kValue, k, O �)).
+                    // d. If testResult is true, return kValue.
+                    var kValue = o[k];
+                    if (predicate.call(thisArg, kValue, k, o)) {
+                        return kValue;
+                    }
+                    // e. Increase k by 1.
+                    k++;
+                }
+
+                // 7. Return undefined.
+                return undefined;
+            }
+        });
+    }
 
     function defineStyles() {
         var styles = [
@@ -40,6 +109,11 @@
                     '    float: left;' +
                     '    clear: left;' +
                     '    margin: 0 0 2px 0;' +
+                    '    border: 1px solid white;' +
+                    '}',
+                '#paneled-outlier-explorer #left-side .wc-controls .control-group.inlier-highlighting {' +
+                    '    background-color: rgba(0,255,0,.05);' +
+                    '    border: 1px solid green;' +
                     '}',
                 '#paneled-outlier-explorer #left-side .wc-controls .control-group > * {' +
                     '    display: inline-block;' +
@@ -138,6 +212,25 @@
                 '#paneled-outlier-explorer div.wc-layout.wc-small-multiples#Charts > div.wc-chart text.no-data {' +
                     '    fill: red;' +
                     '    font-size: 0.8em;' +
+                    '}',
+                '#paneled-outlier-explorer .normal-range {' +
+                    '    fill: green;' +
+                    '    fill-opacity: .05;' +
+                    '    stroke: green;' +
+                    '    stroke-opacity: 1;' +
+                    '}',
+                '#paneled-outlier-explorer .n-inlier {' + '    cursor: help;' + '}',
+                '#paneled-outlier-explorer .n-inlier text {' +
+                    '    fill: green;' +
+                    '    text-anchor: end;' +
+                    '    font-size: 10px;' +
+                    '    font-weight: bold;' +
+                    '}',
+                '#paneled-outlier-explorer .n-inlier rect {' +
+                    '    fill: green;' +
+                    '    fill-opacity: .05;' +
+                    '    stroke: green;' +
+                    '    stroke-opacity: 1;' +
                     '}',
 
                 /***--------------------------------------------------------------------------------------\
@@ -338,55 +431,24 @@
         throw new Error('Unable to copy [obj]! Its type is not supported.');
     }
 
-    if (typeof Object.assign != 'function') {
-        (function() {
-            Object.assign = function(target) {
-                'use strict';
-
-                if (target === undefined || target === null) {
-                    throw new TypeError('Cannot convert undefined or null to object');
-                }
-
-                var output = Object(target);
-                for (var index = 1; index < arguments.length; index++) {
-                    var source = arguments[index];
-                    if (source !== undefined && source !== null) {
-                        for (var nextKey in source) {
-                            if (source.hasOwnProperty(nextKey)) {
-                                output[nextKey] = source[nextKey];
-                            }
-                        }
-                    }
-                }
-                return output;
-            };
-        })();
-    }
-
-    var defaultSettings = {
+    var rendererSettings = {
         measure_col: 'TEST',
         time_cols: [
-            {
-                value_col: 'DY',
-                type: 'linear',
-                order: null,
-                label: 'Study Day',
-                rotate_tick_labels: false,
-                vertical_space: 0
-            },
             {
                 value_col: 'VISIT',
                 type: 'ordinal',
                 order: null,
+                order_col: 'VISITNUM',
                 label: 'Visit',
                 rotate_tick_labels: true,
                 vertical_space: 75
             },
             {
-                value_col: 'VISITN',
-                type: 'ordinal',
+                value_col: 'DY',
+                type: 'linear',
                 order: null,
-                label: 'Visit Number',
+                order_col: 'DY',
+                label: 'Study Day',
                 rotate_tick_labels: false,
                 vertical_space: 0
             }
@@ -398,8 +460,22 @@
         uln_col: 'STNRHI',
         measures: null,
         filters: null,
-        rotate_x_tick_labels: true,
+        multiples_sizing: {
+            width: 350,
+            height: 175
+        },
+        inliers: false,
+        normal_range_method: 'LLN-ULN',
+        normal_range_sd: 1.96,
+        normal_range_quantile_low: 0.05,
+        normal_range_quantile_high: 0.95,
+        visits_without_data: false,
+        unscheduled_visits: false,
+        unscheduled_visit_pattern: '/unscheduled|early termination/i',
+        unscheduled_visit_values: null // takes precedence over unscheduled_visit_pattern   visits_without_data: false,
+    };
 
+    var webchartsSettings = {
         x: {
             type: null, // sync to [ time_cols[0].type ]
             column: null, // sync to [ time_cols[0].value_col ]
@@ -423,14 +499,14 @@
         ],
         resizable: false,
         scale_text: false,
-        width: 400,
-        height: 200,
         margin: {
             bottom: 0,
             left: 50
         },
         gridlines: 'xy'
     };
+
+    var defaultSettings = Object.assign(rendererSettings, webchartsSettings);
 
     function syncSettings(settings) {
         var syncedSettings = clone(settings);
@@ -440,6 +516,21 @@
         syncedSettings.x.rotate_tick_labels = settings.time_cols[0].rotate_tick_labels;
         syncedSettings.y.column = settings.value_col;
         syncedSettings.marks[0].per = [settings.id_col, settings.measure_col];
+        syncedSettings.width = syncedSettings.multiples_sizing.width;
+        syncedSettings.height = syncedSettings.multiples_sizing.height;
+
+        //Convert unscheduled_visit_pattern from string to regular expression.
+        if (
+            typeof syncedSettings.unscheduled_visit_pattern === 'string' &&
+            syncedSettings.unscheduled_visit_pattern !== ''
+        ) {
+            var flags = settings.unscheduled_visit_pattern.replace(/.*?\/([gimy]*)$/, '$1'),
+                pattern = settings.unscheduled_visit_pattern.replace(
+                    new RegExp('^/(.*?)/' + flags + '$'),
+                    '$1'
+                );
+            syncedSettings.unscheduled_visit_regex = new RegExp(pattern, flags);
+        }
 
         return syncedSettings;
     }
@@ -450,6 +541,43 @@
             label: 'X-axis',
             option: 'x.column',
             require: true
+        },
+        {
+            type: 'checkbox',
+            label: 'Visits without data',
+            option: 'visits_without_data'
+        },
+        {
+            type: 'checkbox',
+            label: 'Unscheduled visits',
+            option: 'unscheduled_visits'
+        },
+        {
+            type: 'checkbox',
+            label: 'Normal range inliers',
+            option: 'inliers'
+        },
+        {
+            type: 'dropdown',
+            label: 'Normal range method',
+            option: 'normal_range_method',
+            values: ['None', 'LLN-ULN', 'Standard Deviation', 'Quantiles'],
+            require: true
+        },
+        {
+            type: 'number',
+            label: 'Number of standard deviations',
+            option: 'normal_range_sd'
+        },
+        {
+            type: 'number',
+            label: 'Lower quantile',
+            option: 'normal_range_quantile_low'
+        },
+        {
+            type: 'number',
+            label: 'Upper quantile',
+            option: 'normal_range_quantile_high'
         }
     ];
 
@@ -473,61 +601,137 @@
                 });
             });
 
+        //Remove unscheduled visit control if unscheduled visit pattern is unscpecified.
+        if (!(settings.unscheduled_visit_regex || settings.unscheduled_visit_values))
+            controlInputs.splice(
+                controlInputs
+                    .map(function(controlInput) {
+                        return controlInput.label;
+                    })
+                    .indexOf('Unscheduled visits'),
+                1
+            );
+
         return syncedControlInputs;
+    }
+
+    function removeVariables() {
+        var _this = this;
+
+        //Define set of required variables.
+        this.config.variables = d3$1
+            .set(
+                d3$1.merge([
+                    [this.config.measure_col],
+                    [this.config.id_col],
+                    this.config.time_cols.map(function(time_col) {
+                        return time_col.value_col;
+                    }),
+                    this.config.time_cols.map(function(time_col) {
+                        return time_col.order_col;
+                    }),
+                    [this.config.value_col],
+                    [this.config.unit_col],
+                    [this.config.lln_col],
+                    [this.config.uln_col],
+                    this.config.filters
+                        ? this.config.filters.map(function(filter) {
+                              return filter.value_col;
+                          })
+                        : []
+                ])
+            )
+            .values()
+            .filter(function(variable) {
+                return Object.keys(_this.data.initial[0]).indexOf(variable) > -1;
+            });
+
+        //Delete extraneous variables.
+        this.data.initial.forEach(function(d) {
+            for (var variable in d) {
+                if (_this.config.variables.indexOf(variable) < 0) delete d[variable];
+            }
+        });
+
+        //If data do not have normal range variables update normal range method setting and options.
+        if (
+            this.config.variables.indexOf(this.config.lln_col) < 0 ||
+            this.config.variables.indexOf(this.config.uln_col) < 0
+        ) {
+            if (this.config.normal_range_method === 'LLN-ULN')
+                this.config.normal_range_method = 'Standard Deviation';
+            this.controls.config.inputs
+                .find(function(input) {
+                    return input.option === 'normal_range_method';
+                })
+                .values.splice(1, 1);
+        }
+    }
+
+    function deriveVariables() {
+        var _this = this;
+
+        var ordinalTimeSettings = this.config.time_cols.find(function(time_col) {
+            return time_col.type === 'ordinal';
+        });
+
+        this.data.raw.forEach(function(d) {
+            //brushed datum placeholder
+            d.brushed = false;
+
+            //Concatenate measure and unit.
+            if (d[_this.config.unit_col])
+                d.measure_unit =
+                    d[_this.config.measure_col] + ' (' + d[_this.config.unit_col] + ')';
+            else d.measure_unit = d[_this.config.measure_col];
+
+            //Identify unscheduled visits.
+            d.unscheduled = false;
+            if (ordinalTimeSettings) {
+                if (_this.config.unscheduled_visit_values)
+                    d.unscheduled =
+                        _this.config.unscheduled_visit_values.indexOf(
+                            d[ordinalTimeSettings.value_col]
+                        ) > -1;
+                else if (_this.config.unscheduled_visit_regex)
+                    d.unscheduled = _this.config.unscheduled_visit_regex.test(
+                        d[ordinalTimeSettings.value_col]
+                    );
+            }
+        });
     }
 
     function defineData(data) {
         var _this = this;
 
         this.data = {
-            raw: data,
-            sorted: data
-                .filter(function(d) {
-                    return (
-                        /^[0-9.]+$/.test(d[_this.config.value_col]) &&
-                        !/^\s*$/.test(d[_this.config.measure_col])
-                    );
-                })
-                .sort(function(a, b) {
-                    var aValue = a[_this.config.measure_col],
-                        bValue = b[_this.config.measure_col],
-                        leftSort = aValue < bValue,
-                        rightSort = aValue > bValue,
-                        aID = a[_this.config.id_col],
-                        bID = b[_this.config.id_col],
-                        aTime = a[_this.config.time_col],
-                        bTime = b[_this.config.time_col];
-
-                    var sort = void 0;
-                    if (_this.config.measures && _this.config.measures.length) {
-                        var aPos = _this.config.measures.indexOf(aValue),
-                            bPos = _this.config.measures.indexOf(bValue),
-                            diff = aPos > -1 && bPos > -1 ? aPos - bPos : null;
-
-                        sort = diff
-                            ? diff
-                            : aPos > -1 ? -1 : bPos > -1 ? 1 : leftSort ? -1 : rightSort ? 1 : 0;
-                    } else sort = leftSort ? -1 : rightSort ? 1 : 0;
-
-                    if (!sort) sort = aID < bID ? -1 : aID > bID ? 1 : +aTime - +bTime;
-
-                    return sort;
-                })
+            initial: data
         };
-        if (this.data.raw.length !== this.data.sorted.length)
+
+        //Remove extraneous variables.
+        removeVariables.call(this);
+
+        //Remove invalid data.
+        this.data.raw = this.data.initial.filter(function(d) {
+            return (
+                !/^\s*$/.test(d[_this.config.measure_col]) &&
+                /^[0-9.]+$/.test(d[_this.config.value_col])
+            );
+        });
+
+        //Derive additional variables.
+        deriveVariables.call(this);
+
+        //Warn user of dropped records.
+        if (this.data.raw.length !== this.data.initial.length)
             console.warn(
-                this.data.raw.length -
-                    this.data.sorted.length +
+                this.data.initial.length -
+                    this.data.raw.length +
                     ' non-numeric observations have been removed from the data.'
             );
-        this.data.sorted.forEach(function(d) {
-            d.brushed = false;
-            if (d[_this.config.unit_col])
-                d.measure_unit =
-                    d[_this.config.measure_col] + ' (' + d[_this.config.unit_col] + ')';
-            else d.measure_unit = d[_this.config.measure_col];
-        });
-        this.data.filtered = this.data.sorted;
+
+        //Define placeholder data array.s
+        this.data.filtered = this.data.raw;
         this.data.brushed = [];
         this.data.selectedIDs = [];
     }
@@ -535,9 +739,9 @@
     function captureMeasures() {
         var _this = this;
 
-        this.config.allMeasures = d3
+        this.config.allMeasures = d3$1
             .set(
-                this.data.sorted.map(function(d) {
+                this.data.raw.map(function(d) {
                     return d.measure_unit;
                 })
             )
@@ -562,12 +766,85 @@
                 : this.config.allMeasures;
     }
 
+    function defineVisitOrder() {
+        var _this = this;
+
+        this.config.time_cols.forEach(function(time_settings) {
+            if (time_settings.type === 'ordinal') {
+                var visits = void 0,
+                    visitOrder = void 0;
+
+                //Given an ordering variable sort a unique set of visits by the ordering variable.
+                if (
+                    time_settings.order_col &&
+                    _this.data.raw[0].hasOwnProperty(time_settings.order_col)
+                ) {
+                    //Define a unique set of visits with visit order concatenated.
+                    visits = d3$1
+                        .set(
+                            _this.data.raw.map(function(d) {
+                                return (
+                                    d[time_settings.order_col] + '|' + d[time_settings.value_col]
+                                );
+                            })
+                        )
+                        .values();
+
+                    //Sort visits.
+                    visitOrder = visits
+                        .sort(function(a, b) {
+                            var aOrder = a.split('|')[0],
+                                bOrder = b.split('|')[0],
+                                diff = +aOrder - +bOrder;
+                            return diff ? diff : d3$1.ascending(a, b);
+                        })
+                        .map(function(visit) {
+                            return visit.split('|')[1];
+                        });
+                } else {
+                    //Otherwise sort a unique set of visits alphanumerically.
+                    //Define a unique set of visits.
+                    visits = d3$1
+                        .set(
+                            _this.data.raw.map(function(d) {
+                                return d[time_settings.value_col];
+                            })
+                        )
+                        .values();
+
+                    //Sort visits;
+                    visitOrder = visits.sort();
+                }
+
+                //Set x-axis domain.
+                if (time_settings.order) {
+                    //If a visit order is specified, use it and concatenate any unspecified visits at the end.
+                    time_settings.order = time_settings.order.concat(
+                        visitOrder.filter(function(visit) {
+                            return time_settings.order.indexOf(visit) < 0;
+                        })
+                    );
+                } else
+                    //Otherwise use data-driven visit order.
+                    time_settings.order = visitOrder;
+
+                //Define domain.
+                time_settings.domain = time_settings.order;
+            } else if (time_settings.type === 'linear') {
+                time_settings.order = null;
+                time_settings.domain = d3$1.extent(_this.data.raw, function(d) {
+                    return +d[time_settings.value_col];
+                });
+            }
+        });
+    }
+
     function toggleCharts(chart) {
         var toggle = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
 
-        var measureListCheckbox = d3.select('#measure-list-checkbox'),
+        var measureListCheckbox = d3$1.select('#measure-list-checkbox'),
             checked = measureListCheckbox.property('checked'),
-            measureItems = d3.selectAll('li.measure-item'),
+            measureItems = d3$1.selectAll('li.measure-item'),
             anyUnchecked = measureItems[0].some(function(measureItem) {
                 return !measureItem.getElementsByTagName('input')[0].checked;
             });
@@ -576,7 +853,7 @@
         if (toggle) {
             measureListCheckbox.attr('title', checked ? 'Remove all charts' : 'Display all charts');
             measureItems.each(function(d) {
-                d3
+                d3$1
                     .select(this)
                     .select('input')
                     .property('checked', checked);
@@ -595,14 +872,14 @@
 
     function toggleChart(chart, li) {
         //Determine state of checkbox.
-        var checkbox = d3.select(li).select('input'),
+        var checkbox = d3$1.select(li).select('input'),
             checked = checkbox.property('checked');
         checkbox.attr('title', checked ? 'Remove chart' : 'Display chart');
-        d3
+        d3$1
             .select(chart.div)
             .selectAll('.wc-chart')
             .filter(function(di) {
-                return di.measure === d3.select(li).datum();
+                return di.measure === d3$1.select(li).datum();
             })
             .classed('hidden', !checked);
 
@@ -646,11 +923,11 @@
                         })
                         .classed('active', false);
                     if (d === 'Charts') {
-                        d3.select('#Listing').classed('hidden', true);
-                        d3.select('#Charts').classed('hidden', false);
+                        d3$1.select('#Listing').classed('hidden', true);
+                        d3$1.select('#Charts').classed('hidden', false);
                     } else {
-                        d3.select('#Charts').classed('hidden', true);
-                        d3.select('#Listing').classed('hidden', false);
+                        d3$1.select('#Charts').classed('hidden', true);
+                        d3$1.select('#Listing').classed('hidden', false);
                     }
                 }),
             //Create controls header.
@@ -695,7 +972,7 @@
             })
             .each(function(d) {
                 //Append div inside list item.
-                var measureItemContainer = d3
+                var measureItemContainer = d3$1
                     .select(this)
                     .append('div')
                     .classed('measure-item-container', true);
@@ -734,11 +1011,11 @@
         this.wrap.selectAll('.line-supergroup g.line path').classed('brushed', false);
 
         //De-highlight listing.
-        d3.select('#Listing-nav').classed('brushed', false);
+        d3$1.select('#Listing-nav').classed('brushed', false);
 
         //Define filtered data.
         if (d.type === 'subsetter') {
-            this.data.filtered = this.data.sorted.filter(function(d) {
+            this.data.filtered = this.data.raw.filter(function(d) {
                 var filtered = false;
 
                 _this.controls.config.inputs
@@ -758,31 +1035,22 @@
         this.listing.draw(this.data.filtered);
     }
 
-    function init(data) {
+    function customizeControls() {
         var _this = this;
 
-        var chart = this;
+        var context = this,
+            controls = this.controls.wrap
+                .selectAll('.control-group')
+                .classed('hidden', function(d) {
+                    return (
+                        (_this.config.normal_range_method !== 'Standard Deviation' &&
+                            /standard deviation/i.test(d.label)) ||
+                        (_this.config.normal_range_method !== 'Quantiles' &&
+                            /quantile/i.test(d.label))
+                    );
+                });
 
-        //Attach data arrays to central chart object.
-        defineData.call(this, data);
-
-        //Capture unique measures in an array and define initially displayed measures.
-        captureMeasures.call(this);
-
-        //Define layout of renderer.
-        layout.call(this);
-
-        //Initialize charts.
-        webcharts.multiply(this, this.data.sorted, 'measure_unit');
-
-        //Initialize listing.
-        this.listing.config.cols = Object.keys(data[0]).filter(function(key) {
-            return ['brushed', 'measure_unit'].indexOf(key) === -1;
-        }); // remove system variables from listing
-        this.listing.init(this.data.sorted);
-
-        //Define custom event listener for filters.
-        var controls = this.controls.wrap.selectAll('.control-group');
+        //Define x-axis option labels.
         controls
             .filter(function(control) {
                 return control.label === 'X-axis';
@@ -796,23 +1064,115 @@
                     .pop().label;
             });
 
-        controls.on('change', function(d) {
-            d.value = d3
+        //Define x-axis option labels.
+        controls
+            .filter(function(control) {
+                return control.label === 'X-axis';
+            })
+            .selectAll('option')
+            .property('label', function(d) {
+                return _this.config.time_cols
+                    .filter(function(time_col) {
+                        return time_col.value_col === d;
+                    })
+                    .pop().label;
+            });
+
+        //Add custom x-domain and filter functionality.
+        controls
+            .filter(function(d) {
+                return d.type === 'subsetter' || d.label === 'X-axis';
+            })
+            .on('change', function(d) {
+                d.value = d3$1
+                    .select(this)
+                    .selectAll('option')
+                    .filter(function() {
+                        return this.selected;
+                    })
+                    .text();
+                applyFilters.call(context, d);
+            });
+
+        //Add custom normal range functionality.
+        var normalRangeControl = controls.filter(function(d) {
+            return d.label === 'Normal range method';
+        });
+        normalRangeControl.on('change', function(d) {
+            var normal_range_method = d3$1
                 .select(this)
-                .selectAll('option')
-                .filter(function() {
-                    return this.selected;
-                })
+                .select('option:checked')
                 .text();
-            applyFilters.call(chart, d);
+
+            controls.classed('hidden', function(d) {
+                return (
+                    (normal_range_method !== 'Standard Deviation' &&
+                        /standard deviation/i.test(d.label)) ||
+                    (normal_range_method !== 'Quantiles' && /quantile/i.test(d.label))
+                );
+            });
         });
     }
 
+    function init(data) {
+        defineData.call(this, data);
+
+        //Capture unique set of measures in data.
+        captureMeasures.call(this);
+
+        //Capture ordered set of visits.
+        defineVisitOrder.call(this);
+
+        //Define layout of renderer.
+        layout.call(this);
+
+        //Initialize charts.
+        webcharts.multiply(this, this.data.raw, 'measure_unit', this.config.allMeasures);
+
+        //Initialize listing.
+        this.listing.config.cols = Object.keys(data[0]).filter(function(key) {
+            return ['brushed', 'measure_unit', 'abnormal', 'abnormalID'].indexOf(key) === -1;
+        }); // remove system variables from listing
+        this.listing.init(this.data.raw);
+
+        //Define custom event listener for filters.
+        customizeControls.call(this);
+    }
+
+    function defineMeasureData() {
+        var _this = this;
+
+        this.measure = {
+            value: this.filters[0].val
+        };
+        this.measure.data = this.raw_data.filter(function(d) {
+            return d.measure_unit === _this.measure.value;
+        });
+        this.measure.results = this.measure.data
+            .map(function(d) {
+                return +d[_this.config.value_col];
+            })
+            .sort(function(a, b) {
+                return a - b;
+            });
+        this.measure.IDs = {
+            all: d3$1
+                .set(
+                    this.measure.data.map(function(d) {
+                        return d[_this.config.id_col];
+                    })
+                )
+                .values()
+                .sort()
+        };
+    }
+
     function onInit() {
-        this.currentMeasure = this.filters[0].val;
+        defineMeasureData.call(this);
     }
 
     function minimize(chart) {
+        delete chart.parent.expandedChart;
         //Modify chart config and redraw.
         chart.wrap
             .select('.m__imize-chart')
@@ -820,6 +1180,7 @@
             .attr('title', 'Maximize chart');
         chart.wrap.classed('expanded', false);
 
+        chart.config.previous_plot_width = chart.plot_width;
         chart.config.width = chart.config.initialSettings.width;
         chart.config.max_width = null;
         chart.config.height = chart.config.initialSettings.height;
@@ -829,6 +1190,8 @@
     }
 
     function m__imize(chart) {
+        chart.config.previous_plot_width = chart.plot_width;
+
         //Maximize chart.
         if (!chart.wrap.classed('expanded')) {
             //Clear previously expanded chart.
@@ -853,9 +1216,9 @@
 
             //Sort expanded chart first.
             chart.parent.wrap.selectAll('.wc-chart').sort(function(a, b) {
-                return a.measure === chart.currentMeasure
+                return a.measure === chart.measure.value
                     ? -1
-                    : b.measure === chart.currentMeasure
+                    : b.measure === chart.measure.value
                       ? 1
                       : chart.config.measures.indexOf(a.measure) -
                         chart.config.measures.indexOf(b.measure);
@@ -880,7 +1243,7 @@
         }
     }
 
-    function onLayout() {
+    function removeChart() {
         var _this = this;
 
         this.wrap
@@ -900,14 +1263,17 @@
                 //Minimize chart.
                 if (_this.wrap.classed('full-screen')) m__imize(_this);
 
-                var li = d3.select(
-                    'li.measure-item.' + _this.currentMeasure.replace(/[^a-z0-9-]/gi, '-')
+                var li = d3$1.select(
+                    'li.measure-item.' + _this.measure.value.replace(/[^a-z0-9-]/gi, '-')
                 );
                 li.select('input').property('checked', false);
                 toggleChart(_this, li.node());
             });
+    }
 
-        //Add ability to maximize charts in the chart title.
+    function m__imizeChart() {
+        var _this = this;
+
         var m__imizeButton = this.wrap
             .select('.wc-chart-title')
             .append('span')
@@ -917,40 +1283,262 @@
         m__imizeButton.on('click', function() {
             m__imize(_this);
         });
+    }
 
-        //Hide measures not listed in [ settings.measures ].
+    function classChart() {
         this.wrap
-            .classed(this.currentMeasure.replace(/[^a-z0-9-]/gi, '-'), true)
-            .classed('hidden', this.config.measures.indexOf(this.currentMeasure) === -1);
+            .classed(this.measure.value.replace(/[^a-z0-9-]/gi, '-'), true)
+            .classed('hidden', this.config.measures.indexOf(this.measure.value) === -1);
+    }
+
+    function addInlierAnnotation() {
+        this.inliersAnnotation = {
+            g: this.svg.append('g').classed('n-inlier', true)
+        };
+        this.inliersAnnotation.text = this.inliersAnnotation.g.append('text');
+        this.inliersAnnotation.rect = this.inliersAnnotation.g.append('rect');
+        this.inliersAnnotation.title = this.inliersAnnotation.g.append('title');
+    }
+
+    function onLayout() {
+        //Add button to the chart title that removes chart.
+        removeChart.call(this);
+
+        //Add button to the chart title that maximizes/minimizes chart.
+        m__imizeChart.call(this);
+
+        //Add measure-specific chart class and class that hides chart as needed.
+        classChart.call(this);
+
+        //Add node to svg for inliers annotation.
+        addInlierAnnotation.call(this);
+    }
+
+    function removeVisitsWithoutData() {
+        var _this = this;
+
+        if (!this.config.visits_without_data) {
+            this.config.x.domain = this.config.x.domain.filter(function(visit) {
+                return (
+                    d3$1
+                        .set(
+                            _this.measure.data.map(function(d) {
+                                return d[_this.config.x.column];
+                            })
+                        )
+                        .values()
+                        .indexOf(visit) > -1
+                );
+            });
+        }
+    }
+
+    function removeUnscheduledVisits() {
+        var _this = this;
+
+        if (!this.config.unscheduled_visits) {
+            if (this.config.unscheduled_visit_values)
+                this.config.x.domain = this.config.x.domain.filter(function(visit) {
+                    return _this.config.unscheduled_visit_values.indexOf(visit) < 0;
+                });
+            else if (this.config.unscheduled_visit_regex)
+                this.config.x.domain = this.config.x.domain.filter(function(visit) {
+                    return !_this.config.unscheduled_visit_regex.test(visit);
+                });
+        }
+    }
+
+    function setXoptions() {
+        var _this = this;
+
+        //Update x-object.
+        Object.assign(
+            this.config.x,
+            this.config.time_cols.find(function(time_col) {
+                return time_col.value_col === _this.config.x.column;
+            })
+        );
+        this.config.x.label = '';
+
+        //Remove visits without data from x-domain if x-type is ordinal.
+        if (this.config.x.type === 'ordinal') {
+            this.config.x.domain = this.config.x.order;
+            removeVisitsWithoutData.call(this);
+            removeUnscheduledVisits.call(this);
+        }
+
+        //Delete domain setting if x-type is linear
+        if (this.config.x.type !== 'ordinal') delete this.config.x.domain;
+
+        //Update bottom margin.
+        this.config.margin.bottom = this.config.x.vertical_space;
+    }
+
+    function setYoptions() {
+        var _this = this;
+
+        this.config.y.domain = d3$1.extent(this.measure.data, function(d) {
+            return +d[_this.config.value_col];
+        });
+        var range = this.config.y.domain[1] - this.config.y.domain[0];
+        this.config.y.format = range < 0.1 ? '.3f' : range < 1 ? '.2f' : range < 10 ? '.1f' : '1d';
+    }
+
+    function deriveStatistics() {
+        var _this = this;
+
+        if (this.config.normal_range_method === 'LLN-ULN') {
+            this.lln = function(d) {
+                return d instanceof Object
+                    ? +d[_this.config.lln_col]
+                    : d3$1.median(_this.measure.data, function(d) {
+                          return +d[_this.config.lln_col];
+                      });
+            };
+            this.uln = function(d) {
+                return d instanceof Object
+                    ? +d[_this.config.uln_col]
+                    : d3$1.median(_this.measure.data, function(d) {
+                          return +d[_this.config.uln_col];
+                      });
+            };
+        } else if (this.config.normal_range_method === 'Standard Deviation') {
+            this.mean = d3$1.mean(this.measure.results);
+            this.sd = d3$1.deviation(this.measure.results);
+            this.lln = function() {
+                return _this.mean - _this.config.normal_range_sd * _this.sd;
+            };
+            this.uln = function() {
+                return _this.mean + _this.config.normal_range_sd * _this.sd;
+            };
+        } else if (this.config.normal_range_method === 'Quantiles') {
+            this.lln = function() {
+                return d3$1.quantile(_this.measure.results, _this.config.normal_range_quantile_low);
+            };
+            this.uln = function() {
+                return d3$1.quantile(
+                    _this.measure.results,
+                    _this.config.normal_range_quantile_high
+                );
+            };
+        } else {
+            this.lln = function(d) {
+                return d instanceof Object
+                    ? d[_this.config.value_col] + 1
+                    : _this.measure.results[0];
+            };
+            this.uln = function(d) {
+                return d instanceof Object
+                    ? d[_this.config.value_col] - 1
+                    : _this.measure.results[_this.measure.results.length - 1];
+            };
+        }
+    }
+
+    function deriveVariables$1() {
+        var _this = this;
+
+        //Identify IDs with abnormal results.
+        this.measure.IDs.abnormal = d3$1
+            .set(
+                this.measure.data
+                    .filter(function(d) {
+                        return (
+                            d[_this.config.value_col] < _this.lln(d) ||
+                            d[_this.config.value_col] > _this.uln(d)
+                        );
+                    })
+                    .map(function(d) {
+                        return d[_this.config.id_col];
+                    })
+            )
+            .values();
+
+        this.measure.data.forEach(function(d) {
+            //Identify IDs with abnormal results.
+            d.abnormalID = _this.measure.IDs.abnormal.indexOf(d[_this.config.id_col]) > -1;
+
+            //Identify abnormal results.
+            d.abnormal =
+                d[_this.config.value_col] < _this.lln(d) ||
+                d[_this.config.value_col] > _this.uln(d);
+
+            //Identify IDs that have been brushed.
+            d.brushedID = _this.parent.data.selectedIDs.indexOf(d[_this.config.id_col]) > -1;
+        });
+    }
+
+    function filterData() {
+        var _this = this;
+
+        this.raw_data = this.measure.data;
+
+        //Count number of IDs given current filters.
+        if (
+            this.filters.some(function(filter) {
+                return filter.col !== 'measure_unit' && filter.val !== 'All';
+            })
+        )
+            this.measure.IDs.filtered = d3
+                .set(
+                    this.raw_data
+                        .filter(function(d) {
+                            var filtered = false;
+
+                            _this.filters
+                                .filter(function(filter) {
+                                    return filter.col !== 'measure_unit';
+                                })
+                                .forEach(function(filter) {
+                                    if (filtered === false && filter.val !== 'All')
+                                        filtered =
+                                            filter.val instanceof Array
+                                                ? filter.val.indexOf(d[filter.col]) < 0
+                                                : filter.val !== d[filter.col];
+                                });
+
+                            return !filtered;
+                        })
+                        .map(function(d) {
+                            return d[_this.config.id_col];
+                        })
+                )
+                .values()
+                .sort();
+        else this.measure.IDs.filtered = this.measure.IDs.all;
+
+        //Remove inlier IDs from data.
+        if (!this.config.inliers)
+            this.raw_data = this.raw_data.filter(function(d) {
+                return d.abnormalID || d.brushedID;
+            });
+
+        //Remove unscheduled visits from data.
+        if (!this.config.unscheduled_visits)
+            this.raw_data = this.raw_data.filter(function(d) {
+                return !d.unscheduled;
+            });
+
+        this.measure.IDs.current = this.measure.IDs.filtered.filter(function(ID) {
+            return (
+                d3$1
+                    .set(
+                        _this.raw_data.map(function(d) {
+                            return d[_this.config.id_col];
+                        })
+                    )
+                    .values()
+                    .indexOf(ID) > -1
+            );
+        });
     }
 
     function onPreprocess() {
-        var _this = this;
-
-        //Set the y-domain individually for each measure.
-        this.config.y.domain = d3.extent(
-            this.raw_data.filter(function(d) {
-                return d.measure_unit === _this.currentMeasure;
-            }),
-            function(d) {
-                return +d[_this.config.value_col];
-            }
-        );
-        var range = this.config.y.domain[1] - this.config.y.domain[0];
-        this.config.y.format = range < 0.1 ? '.3f' : range < 1 ? '.2f' : range < 10 ? '.1f' : '1d';
-
-        //Sync config with X-axis selection.
-        var xInput = this.controls.config.inputs.filter(function(input) {
-                return input.label === 'X-axis';
-            })[0],
-            time_col = this.config.time_cols.filter(function(time_col) {
-                return time_col.value_col === _this.config.x.column;
-            })[0];
-
-        this.config.x.type = time_col.type;
-        this.config.x.order = time_col.order;
-        this.config.x.rotate_tick_labels = time_col.rotate_tick_labels;
-        this.config.margin.bottom = time_col.vertical_space;
+        setXoptions.call(this);
+        setYoptions.call(this);
+        deriveStatistics.call(this);
+        deriveVariables$1.call(this);
+        filterData.call(this);
     }
 
     function onDatatransform() {}
@@ -959,7 +1547,163 @@
         if (this.package) this.package.overlay.call(this.package.brush.clear());
     }
 
-    d3.selection.prototype.moveToFront = function() {
+    function resetChart() {
+        this.svg.selectAll('*').classed('hidden', false);
+        this.svg.select('text.no-data').remove();
+        this.svg.select('.normal-range').remove();
+    }
+
+    function definePackage() {
+        //Capture each multiple's scale.
+        this.package = {
+            measure: this.measure.value,
+            container: this.wrap,
+            overlay: this.svg.append('g').classed('brush', true),
+            value: this.measure.value,
+            domain: clone(this.config.y.domain),
+            xScale: clone(this.x),
+            yScale: clone(this.y),
+            brush: d3$1.svg
+                .brush()
+                .x(this.x)
+                .y(this.y)
+        };
+        this.wrap.datum(this.package);
+
+        //Define invisible brush overlay.
+        this.package.overlay.append('rect').attr({
+            x: 0,
+            y: 0,
+            width: this.plot_width,
+            height: this.plot_height,
+            'fill-opacity': 0
+        });
+
+        //Attach additional data to SVG and marks.
+        this.package.overlay.style('cursor', 'crosshair').datum({ measure: this.measure.value });
+    }
+
+    function handleNoData() {
+        this.svg
+            .append('text')
+            .classed('no-data', true)
+            .attr({
+                x: 0,
+                dx: -this.config.margin.left,
+                y: 0,
+                dy: 10
+            })
+            .text('No data selected.');
+    }
+
+    function drawNormalRange() {
+        if (this.config.normal_range_method)
+            this.svg
+                .insert('rect', '.line-supergroup')
+                .classed('normal-range', true)
+                .attr({
+                    x: this.x(this.x_dom[0]) - 5, // make sure left side of normal range does not appear in chart
+                    y: this.y(this.uln()),
+                    width: this.plot_width + 10, // make sure right side of normal range does not appear in chart
+                    height: this.y(this.lln()) - this.y(this.uln()),
+                    'clip-path': 'url(#' + this.id + ')'
+                });
+    }
+
+    function annotateInliers() {
+        var _this = this;
+
+        this.inliersAnnotation.g.classed('hidden', this.config.inliers);
+
+        if (!this.config.inliers) {
+            //text
+            var inlierIDs = this.measure.IDs.filtered.filter(function(ID) {
+                return _this.measure.IDs.abnormal.indexOf(ID) < 0;
+            });
+            var abnormalIDs = this.measure.IDs.abnormal.filter(function(ID) {
+                return _this.measure.IDs.filtered.indexOf(ID) > -1;
+            });
+            var nInlierIDs = inlierIDs.length;
+            this.inliersAnnotation.text
+                .attr({
+                    x: 0,
+                    dx: -10,
+                    y: this.plot_height,
+                    dy: 19
+                })
+                .text('' + nInlierIDs);
+
+            //text box
+            var textDimensions = this.inliersAnnotation.text.node().getBBox();
+            this.inliersAnnotation.rect.attr({
+                x: textDimensions.x - 2,
+                y: textDimensions.y,
+                width: textDimensions.width + 4,
+                height: textDimensions.height
+            });
+
+            //tooltip
+            this.inliersAnnotation.title.text(
+                nInlierIDs +
+                    ' of ' +
+                    this.measure.IDs.filtered.length +
+                    ' participants (' +
+                    d3$1.format('%')(nInlierIDs / this.measure.IDs.filtered.length) +
+                    ') with entirely normal results are hidden.\nToggle the "Normal range inliers" checkbox to display these participants.'
+            );
+
+            //mosue hover
+            this.inliersAnnotation.g
+                .on('mouseover', function() {
+                    _this.controls.wrap
+                        .selectAll('.control-group')
+                        .filter(function(d) {
+                            return d.option === 'inliers';
+                        })
+                        .classed('inlier-highlighting', true);
+                })
+                .on('mouseout', function() {
+                    _this.controls.wrap
+                        .selectAll('.control-group')
+                        .filter(function(d) {
+                            return d.option === 'inliers';
+                        })
+                        .classed('inlier-highlighting', false);
+                });
+        }
+    }
+
+    function attachLines() {
+        var _this = this;
+
+        this.lines = this.svg.selectAll('.line-supergroup g.line path');
+        this.lines.each(function(d, i) {
+            d.id = d.values[0].values.raw[0][_this.config.id_col];
+            d.lln = d.values[0].values.raw[0][_this.config.lln_col];
+            d.uln = d.values[0].values.raw[0][_this.config.uln_col];
+            d.lines = d.values.map(function(di, i) {
+                var line;
+                if (i) {
+                    line = {
+                        x0:
+                            _this.config.x.type === 'linear'
+                                ? d.values[i - 1].values.x
+                                : _this.x(d.values[i - 1].values.x) + _this.x.rangeBand() / 2,
+                        y0: d.values[i - 1].values.y,
+                        x1:
+                            _this.config.x.type === 'linear'
+                                ? di.values.x
+                                : _this.x(di.values.x) + _this.x.rangeBand() / 2,
+                        y1: di.values.y
+                    };
+                }
+                return line;
+            });
+            d.lines.shift();
+        });
+    }
+
+    d3$1.selection.prototype.moveToFront = function() {
         return this.each(function() {
             this.parentNode.appendChild(this);
         });
@@ -984,6 +1728,65 @@
      * @param {Object} q2 point object with x and y coordinates
      *  representing the end of the 2nd line.
      */
+
+    /**
+     * Subtract the second point from the first.
+     *
+     * @param {Object} point1 point object with x and y coordinates
+     * @param {Object} point2 point object with x and y coordinates
+     *
+     * @return the subtraction result as a point object
+     */
+
+    function subtractPoints(point1, point2) {
+        var result = {};
+        result.x = point1.x - point2.x;
+        result.y = point1.y - point2.y;
+
+        return result;
+    }
+
+    /**
+     * Calculate the cross product of the two points.
+     *
+     * @param {Object} point1 point object with x and y coordinates
+     * @param {Object} point2 point object with x and y coordinates
+     *
+     * @return the cross product result as a float
+     */
+    function crossProduct(point1, point2) {
+        return point1.x * point2.y - point1.y * point2.x;
+    }
+
+    /**
+     * See if the points are equal.
+     *
+     * @param {Object} point1 point object with x and y coordinates
+     * @param {Object} point2 point object with x and y coordinates
+     *
+     * @return if the points are equal
+     */
+    function equalPoints(point1, point2) {
+        return point1.x == point2.x && point1.y == point2.y;
+    }
+
+    /**
+     * See if all arguments are equal.
+     *
+     * @param {...} args arguments that will be compared by '=='.
+     *
+     * @return if all arguments are equal
+     */
+    function allEqual(args) {
+        var firstValue = arguments[0],
+            i;
+        for (i = 1; i < arguments.length; i += 1) {
+            if (arguments[i] != firstValue) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     function doLineSegmentsIntersect(p, p2, q, q2) {
         var r = subtractPoints(p2, p);
@@ -1022,69 +1825,10 @@
         return t >= 0 && t <= 1 && u >= 0 && u <= 1;
     }
 
-    /**
-     * Calculate the cross product of the two points.
-     *
-     * @param {Object} point1 point object with x and y coordinates
-     * @param {Object} point2 point object with x and y coordinates
-     *
-     * @return the cross product result as a float
-     */
-    function crossProduct(point1, point2) {
-        return point1.x * point2.y - point1.y * point2.x;
-    }
+    function brushMarks() {
+        var _this = this;
 
-    /**
-     * Subtract the second point from the first.
-     *
-     * @param {Object} point1 point object with x and y coordinates
-     * @param {Object} point2 point object with x and y coordinates
-     *
-     * @return the subtraction result as a point object
-     */
-
-    function subtractPoints(point1, point2) {
-        var result = {};
-        result.x = point1.x - point2.x;
-        result.y = point1.y - point2.y;
-
-        return result;
-    }
-
-    /**
-     * See if the points are equal.
-     *
-     * @param {Object} point1 point object with x and y coordinates
-     * @param {Object} point2 point object with x and y coordinates
-     *
-     * @return if the points are equal
-     */
-    function equalPoints(point1, point2) {
-        return point1.x == point2.x && point1.y == point2.y;
-    }
-
-    /**
-     * See if all arguments are equal.
-     *
-     * @param {...} args arguments that will be compared by '=='.
-     *
-     * @return if all arguments are equal
-     */
-    function allEqual(args) {
-        var firstValue = arguments[0],
-            i;
-        for (i = 1; i < arguments.length; i += 1) {
-            if (arguments[i] != firstValue) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    function brushMarks(chart, lines) {
-        chart.parent.brushedMeasure = chart.currentMeasure;
-
-        var extent$$1 = chart.config.extent,
+        var extent$$1 = this.config.extent,
             x0 = extent$$1[0][0],
             // top left x-coordinate
             y0 = extent$$1[1][1],
@@ -1100,7 +1844,7 @@
             sides = [top, right, bottom, left];
 
         //Determine which lines fall inside the brush.
-        var brushedLines = lines.filter(function(d, i) {
+        var brushedLines = this.lines.filter(function(d, i) {
             var intersection = false;
             d.lines.forEach(function(line, j) {
                 sides.forEach(function(side, k) {
@@ -1118,96 +1862,88 @@
         });
 
         //Attached brushed IDs to chart parent object.
-        chart.parent.data.selectedIDs = brushedLines.data().map(function(d) {
+        this.parent.data.selectedIDs = brushedLines.data().map(function(d) {
             return d.id;
         });
 
         //Highlight brushed lines.
-        chart.parent.wrap
+        this.parent.wrap
             .selectAll('.line-supergroup g.line path')
             .classed('brushed', false)
             .filter(function(d) {
-                return chart.parent.data.selectedIDs.indexOf(d.id) > -1;
+                return _this.parent.data.selectedIDs.indexOf(d.id) > -1;
             })
             .classed('brushed', true)
             .each(function(d) {
-                d3.select(this.parentNode).moveToFront();
+                d3$1.select(this.parentNode).moveToFront();
             });
 
         //Draw listing displaying brushed IDs first.
-        if (chart.parent.data.selectedIDs.length) {
-            chart.parent.data.filtered.forEach(function(d) {
-                d.brushed = chart.parent.data.selectedIDs.indexOf(d[chart.config.id_col]) > -1;
+        if (this.parent.data.selectedIDs.length) {
+            this.parent.data.filtered.forEach(function(d) {
+                d.brushed = _this.parent.data.selectedIDs.indexOf(d[_this.config.id_col]) > -1;
             });
-            chart.parent.data.brushed = chart.parent.data.filtered.filter(function(d) {
+            this.parent.data.brushed = this.parent.data.filtered.filter(function(d) {
                 return d.brushed;
             });
-            chart.parent.listing.draw(chart.parent.data.brushed);
-            d3.select('#Listing-nav').classed('brushed', true);
+            this.parent.listing.draw(this.parent.data.brushed);
+            d3$1.select('#Listing-nav').classed('brushed', true);
         } else {
-            chart.parent.data.brushed = [];
-            chart.parent.listing.draw(chart.parent.data.filtered);
-            d3.select('#Listing-nav').classed('brushed', false);
+            this.parent.data.brushed = [];
+            this.parent.listing.draw(this.parent.data.filtered);
+            d3$1.select('#Listing-nav').classed('brushed', false);
         }
     }
 
     function brush() {
         var _this = this;
 
-        var chart = this;
-
-        //lines
-        var lines = this.svg.selectAll('.line-supergroup g.line path');
-        lines.each(function(d, i) {
-            d.id = d.values[0].values.raw[0][chart.config.id_col];
-            d.lln = d.values[0].values.raw[0][chart.config.lln_col];
-            d.uln = d.values[0].values.raw[0][chart.config.uln_col];
-            d.lines = d.values.map(function(di, i) {
-                var line;
-                if (i) {
-                    line = {
-                        x0:
-                            chart.config.x.type === 'linear'
-                                ? d.values[i - 1].values.x
-                                : chart.x(d.values[i - 1].values.x) + chart.x.rangeBand() / 2,
-                        y0: d.values[i - 1].values.y,
-                        x1:
-                            chart.config.x.type === 'linear'
-                                ? di.values.x
-                                : chart.x(di.values.x) + chart.x.rangeBand() / 2,
-                        y1: di.values.y
-                    };
-                }
-                return line;
-            });
-            d.lines.shift();
-        });
-
         //Highlight previously brushed points.
         if (this.parent.data.selectedIDs.length) {
-            lines
+            this.lines
                 .filter(function(d) {
                     return _this.parent.data.selectedIDs.indexOf(d.id) > -1;
                 })
                 .classed('brushed', true)
                 .each(function() {
-                    d3.select(this.parentNode).moveToFront();
+                    d3$1.select(this.parentNode).moveToFront();
                 });
         }
 
         //Apply brush.
         this.package.brush
-            .on('brushstart', function() {})
-            .on('brush', function() {
-                chart.parent.wrap.selectAll('.wc-chart').each(function(d) {
-                    if (d.measure !== chart.currentMeasure) d.overlay.call(d.brush.clear());
-                });
-                chart.config.extent = chart.package.brush.extent();
+            .on('brushstart', function() {
+                //Clear previous brush.
+                if (_this.parent.brushedChart)
+                    _this.parent.brushedChart.package.overlay.call(
+                        _this.parent.brushedChart.package.brush.clear()
+                    );
 
-                //brush marks
-                brushMarks(chart, lines);
+                //Attach current brushed chart to parent.
+                _this.parent.brushedChart = _this;
+                _this.parent.brushedMeasure = _this.measure.value;
             })
-            .on('brushend', function() {});
+            .on('brush', function() {})
+            .on('brushend', function() {
+                _this.config.extent = _this.package.brush.extent();
+
+                //Brush marks.
+                brushMarks.call(_this);
+
+                //Redraw charts in which the currently brushed ID(s) are inliers.
+                if (_this.parent.data.selectedIDs.length > 0)
+                    _this.parent.multiples
+                        .filter(function(multiple) {
+                            return (
+                                _this.parent.data.selectedIDs.filter(function(ID) {
+                                    return multiple.measure.IDs.current.indexOf(ID) < 0;
+                                }).length > 0
+                            );
+                        })
+                        .forEach(function(multiple) {
+                            multiple.draw();
+                        });
+            });
 
         //Initialize brush on brush overlay.
         this.package.overlay.call(this.package.brush);
@@ -1219,35 +1955,39 @@
                 this.config.extent[0][1] !== this.package.brush.extent()[0][1] ||
                 this.config.extent[1][0] !== this.package.brush.extent()[1][0] ||
                 this.config.extent[1][1] !== this.package.brush.extent()[1][1]) &&
-            this.currentMeasure === chart.parent.brushedMeasure
+            this.measure.value === this.parent.brushedMeasure
         ) {
+            if (this.config.x.type === 'ordinal') {
+                this.config.extent[0][0] =
+                    this.config.extent[0][0] * this.plot_width / this.config.previous_plot_width;
+                this.config.extent[1][0] =
+                    this.config.extent[1][0] * this.plot_width / this.config.previous_plot_width;
+            }
             this.package.brush.extent(this.config.extent);
             this.package.overlay.call(this.package.brush);
-            brushMarks(chart, lines);
+            brushMarks.call(this);
         }
     }
 
-    function adjustTicks(axis, dx, dy, rotation, anchor, nchar) {
-        if (!axis) return;
-        var ticks = this.svg
-            .selectAll('.' + axis + '.axis .tick text')
-            .attr({
-                transform: 'rotate(' + rotation + ')',
-                dx: dx,
-                dy: dy
-            })
-            .style('text-anchor', anchor || 'start');
+    function rotateXaxisTickLabels() {
+        if (this.config.x.rotate_tick_labels) {
+            var ticks = this.svg
+                .selectAll('.' + 'x' + '.axis .tick text')
+                .attr({
+                    transform: 'rotate(-45)',
+                    dx: -10,
+                    dy: 10
+                })
+                .style('text-anchor', 'end');
 
-        if (nchar) {
             ticks
                 .filter(function(d) {
-                    var dText = '' + d;
-                    return dText.length > nchar;
-                })
-                .text(function(d) {
-                    return d.slice(0, nchar - 3) + '...';
+                    return ('' + d).length > 10;
                 })
                 .style('cursor', 'help')
+                .text(function(d) {
+                    return d.slice(0, 7) + '...';
+                })
                 .append('title')
                 .text(function(d) {
                     return d;
@@ -1256,77 +1996,29 @@
     }
 
     function onResize() {
-        if (this.filtered_data.length == 0) {
-            this.svg.selectAll('*').classed('hidden', true);
-            this.svg.select('text.no-data').remove();
-            this.svg
-                .append('text')
-                .classed('no-data', true)
-                .attr({
-                    x: 0,
-                    dx: -this.config.margin.left,
-                    y: 0,
-                    dy: 10
-                })
-                .text('No data selected.');
-        } else {
-            this.svg.selectAll('*').classed('hidden', false);
-            this.svg.select('text.no-data').remove();
-            this.svg.select('.normal-range').remove();
-            this.svg
-                .insert('rect', '.line-supergroup')
-                .classed('normal-range', true)
-                .attr({
-                    x: this.x(this.x_dom[0]) - 5, // make sure left side of normal range does not appear in chart
-                    y: this.y(this.filtered_data[0][this.config.uln_col]),
-                    width: this.plot_width + 10, // make sure right side of normal range does not appear in chart
-                    height:
-                        this.y(this.filtered_data[0][this.config.lln_col]) -
-                        this.y(this.filtered_data[0][this.config.uln_col]),
-                    fill: 'green',
-                    'fill-opacity': 0.05,
-                    stroke: 'green',
-                    'stroke-opacity': 1,
-                    'clip-path': 'url(#' + this.id + ')'
-                });
+        //Reset chart.
+        resetChart.call(this);
 
-            //Capture each multiple's scale.
-            this.package = {
-                measure: this.currentMeasure,
-                container: this.wrap,
-                overlay: this.svg.append('g').classed('brush', true),
-                value: this.currentMeasure,
-                domain: clone(this.config.y.domain),
-                xScale: clone(this.x),
-                yScale: clone(this.y),
-                brush: d3.svg
-                    .brush()
-                    .x(this.x)
-                    .y(this.y)
-            };
-            this.wrap.datum(this.package);
+        //Define datum for each multiple and attach it to multiple's container.
+        definePackage.call(this);
 
-            //Define invisible brush overlay.
-            this.package.overlay.append('rect').attr({
-                x: 0,
-                y: 0,
-                width: this.plot_width,
-                height: this.plot_height,
-                'fill-opacity': 0
-            });
+        //Draw normal range.
+        if (this.filtered_data.length == 0) handleNoData.call(this);
+        else {
+            //Draw normal range.
+            drawNormalRange.call(this);
 
-            //Attach additional data to SVG and marks.
-            this.package.overlay
-                .style('cursor', 'crosshair')
-                .datum({ measure: this.currentMeasure });
+            //Annotate number of inliers.
+            annotateInliers.call(this);
+
+            //Attach lines to chart object.
+            attachLines.call(this);
 
             //Add brush functionality.
             brush.call(this);
 
             //Rotate x-axis tick labels.
-            if (this.config.x.rotate_tick_labels) {
-                adjustTicks.call(this, 'x', -10, 10, -45, 'end', 10);
-            }
+            rotateXaxisTickLabels.call(this);
         }
     }
 
@@ -1371,12 +2063,13 @@
         onDestroy: onDestroy$1
     };
 
+    //Utility polyfills
     function paneledOutlierExplorer() {
         var element = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 'body';
         var settings = arguments[1];
 
         //Define unique div within passed element argument.
-        var container = d3
+        var container = d3$1
                 .select(element)
                 .append('div')
                 .attr('id', 'paneled-outlier-explorer'),
